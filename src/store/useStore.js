@@ -14,6 +14,7 @@ import {
   getTrafficSources,
   getAudienceBreakdown,
   generateDailyTimeSeries,
+  generateLifetimeTimeSeries,
   generateRealtimeDataset,
   tickRealtimeData,
   formatDateRangeText,
@@ -125,23 +126,23 @@ const BASELINE_REVENUE = PROCESSED_VIDEOS.reduce((acc, v) => acc + ((Number(v.vi
 const EMPTY_STATE = {
   channelInfo: {
     ...CHANNEL_BENCHMARKS,
-    subscribers: 128547,
-    subscribersFormatted: '1,28,547',
-    lifetimeViewsFormatted: '21.5M',
+    subscribers: 53822,
+    subscribersFormatted: '53,822',
+    lifetimeViewsFormatted: '37L',
     totalUploads: PROCESSED_VIDEOS.length,
     hasExplicitChannelMetrics: true,
-    viewsLast28Days: 2840000,
-    viewsLast28DaysFormatted: '2.84M',
-    watchTimeLast28Days: 51410,
-    watchTimeLast28DaysFormatted: '51.41K hrs',
-    subscribersGainedLast28Days: 36130,
-    subscribersGainedLast28DaysFormatted: '+36.13K',
-    revenueLast28Days: 2107542.46,
-    revenueLast28DaysFormatted: '₹21,07,542.46',
-    totalRevenueFormatted: '₹21,07,542.46',
-    realtimeSubscribers: 128547,
-    realtimeViews48h: 36473,
-    realtimeViews60m: 2130,
+    viewsLast28Days: 3696747,
+    viewsLast28DaysFormatted: '37L',
+    watchTimeLast28Days: 640000,
+    watchTimeLast28DaysFormatted: '6.4L',
+    subscribersGainedLast28Days: 53822,
+    subscribersGainedLast28DaysFormatted: '+53.8K',
+    revenueLast28Days: 5899062.78,
+    revenueLast28DaysFormatted: '₹58,99,062.78',
+    totalRevenueFormatted: '₹58,99,062.78',
+    realtimeSubscribers: 53822,
+    realtimeViews48h: 0,
+    realtimeViews60m: 0,
     currency: 'INR'
   },
   videos: PROCESSED_VIDEOS,
@@ -269,9 +270,9 @@ export const useStore = create(
         liveSync: true
       },
 
-      // Insforge Database Connectivity State
+      // Database Connectivity State (Disconnected)
       isDatabaseLoading: false,
-      isDatabaseConnected: true,
+      isDatabaseConnected: false,
       lastDatabaseSync: null,
       databaseError: null,
 
@@ -290,73 +291,75 @@ export const useStore = create(
       },
       clearToast: () => set({ toast: null }),
 
-      // ─── Insforge Database Sync Methods ───
-      loadFromDatabase: async (silent = false) => {
-        set({ isDatabaseLoading: true, databaseError: null });
+      // ─── Permanent Local Storage Persistence (No Database) ───
+      loadPermanentState: async (silent = true) => {
         try {
-          const res = await InsforgeService.loadDatabaseData();
-          if (res.success) {
-            const updates = {};
-            const curState = get();
-            if (res.channelInfo) {
-              updates.channelInfo = {
-                ...curState.channelInfo,
-                ...res.channelInfo,
-                hasExplicitChannelMetrics: true
-              };
-            }
-            if (res.videos && res.videos.length > 0) {
-              updates.videos = res.videos;
-            }
-            if (res.stateData) {
-              if (res.stateData.channelInfo) {
-                updates.channelInfo = { ...curState.channelInfo, ...updates.channelInfo, ...res.stateData.channelInfo };
+          const res = await fetch('/api/crm/data');
+          if (res.ok) {
+            const body = await res.json();
+            if (body && body.data) {
+              const { channelInfo, videos, stateData } = body.data;
+              const curState = get();
+              const updates = {};
+              if (channelInfo) {
+                updates.channelInfo = { ...curState.channelInfo, ...channelInfo, hasExplicitChannelMetrics: true };
               }
-              if (res.stateData.videos && res.stateData.videos.length > 0) {
-                updates.videos = res.stateData.videos;
+              if (videos && videos.length > 0) {
+                updates.videos = videos;
               }
+              if (stateData) {
+                if (stateData.channelInfo) updates.channelInfo = { ...curState.channelInfo, ...updates.channelInfo, ...stateData.channelInfo };
+                if (stateData.videos && stateData.videos.length > 0) updates.videos = stateData.videos;
+                if (stateData.graphSettings) updates.graphSettings = stateData.graphSettings;
+                if (stateData.simulationAnchorDate) updates.simulationAnchorDate = stateData.simulationAnchorDate;
+                if (stateData.selectedDateRange) updates.selectedDateRange = stateData.selectedDateRange;
+                if (stateData.customStartDate) updates.customStartDate = stateData.customStartDate;
+                if (stateData.customEndDate) updates.customEndDate = stateData.customEndDate;
+              }
+              set({
+                ...updates,
+                hasCrmOverrides: true,
+                dateRangeVersion: (curState.dateRangeVersion || 0) + 1
+              });
+              return true;
             }
-            set({
-              ...updates,
-              hasCrmOverrides: true,
-              isDatabaseLoading: false,
-              isDatabaseConnected: true,
-              lastDatabaseSync: new Date().toISOString(),
-              databaseError: null
-            });
-            if (!silent) {
-              get().showToast('Loaded latest state from Insforge database ✓', 'success');
-            }
-            return true;
-          } else {
-            set({ isDatabaseLoading: false, databaseError: res.error });
-            return false;
           }
         } catch (err) {
-          console.error('[Store] Database load error:', err);
-          set({ isDatabaseLoading: false, databaseError: err.message });
-          return false;
+          console.warn('[Store] Local permanent state load note:', err.message);
+        }
+        return false;
+      },
+
+      loadFromDatabase: async () => {
+        return get().loadPermanentState();
+      },
+
+      persistPermanentState: async () => {
+        const state = get();
+        const payload = {
+          channelInfo: state.channelInfo,
+          videos: state.videos,
+          settings: state.settings,
+          graphSettings: state.graphSettings,
+          selectedDateRange: state.selectedDateRange,
+          simulationAnchorDate: state.simulationAnchorDate,
+          customStartDate: state.customStartDate,
+          customEndDate: state.customEndDate,
+          savedAt: new Date().toISOString()
+        };
+        try {
+          await fetch('/api/crm/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch {
+          // Local storage persistence serves as seamless browser fallback
         }
       },
 
       persistToDatabase: async () => {
-        const state = get();
-        try {
-          if (state.channelInfo) {
-            await InsforgeService.saveChannelMetrics(state.channelInfo);
-          }
-          if (state.videos && state.videos.length > 0) {
-            await InsforgeService.saveAllVideos(state.videos);
-          }
-          await InsforgeService.saveFullSnapshot({
-            channelInfo: state.channelInfo,
-            videos: state.videos,
-            savedAt: new Date().toISOString()
-          });
-          set({ lastDatabaseSync: new Date().toISOString(), isDatabaseConnected: true });
-        } catch (err) {
-          console.error('[Store] Error persisting to Insforge DB:', err);
-        }
+        return get().persistPermanentState();
       },
 
       // Date range changer
@@ -483,8 +486,8 @@ export const useStore = create(
           startStr = formatDate(subDays(today, 364));
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {
-          startStr = '2025-08-01';
-          endStr = todayStr;
+          startStr = '2023-02-11';
+          endStr = '2026-10-02';
         } else if (activeKey === '2026') {
           startStr = '2026-01-01';
           endStr = todayStr;
@@ -505,13 +508,43 @@ export const useStore = create(
           endStr = state.customEndDate || todayStr;
         }
 
-        // Dynamically generate daily time series ending at endStr (or anchorDateStr) so that
-        // ANY date set in CRM (e.g. 2026-08-20, 2026-08-14, 2026-09-01) has complete, valid daily metrics
-        const channelConfig = state.graphSettings?.channel || state.graphSettings || {};
-        const dynamicDailySeries = generateDailyTimeSeries(365, endStr || anchorDateStr, state.videos, channelConfig);
-        const filteredDaily = filterDailyMetricsByRange(dynamicDailySeries, startStr, endStr);
-        const agg = aggregateMetrics(filteredDaily, videoId);
-        const formattedDateRange = formatDateRangeText(startStr, endStr);
+        let dynamicDailySeries;
+        let filteredDaily;
+        if ((activeKey === 'lifetime' || activeKey === 'since_published') && !videoId) {
+          dynamicDailySeries = generateLifetimeTimeSeries();
+          filteredDaily = dynamicDailySeries;
+        } else {
+          const channelConfig = state.graphSettings?.channel || state.graphSettings || {};
+          const diffDays = Math.max(365, Math.ceil((new Date(endStr).getTime() - new Date(startStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+          dynamicDailySeries = generateDailyTimeSeries(diffDays, endStr || anchorDateStr, state.videos, channelConfig);
+          filteredDaily = filterDailyMetricsByRange(dynamicDailySeries, startStr, endStr);
+        }
+
+        let agg;
+        if ((activeKey === 'lifetime' || activeKey === 'since_published') && !videoId) {
+          agg = {
+            views: 3696747,
+            viewsFormatted: '37L',
+            watchTimeHrs: 640000,
+            watchTimeHrsFormatted: '6.4L',
+            impressions: 41536483,
+            impressionsFormatted: '41.5M',
+            ctr: 8.9,
+            revenue: 5899062.78,
+            revenueFormatted: '₹58,99,062.78',
+            subscribersGained: 58128,
+            subscribersLost: 4306,
+            subscribersNet: 53822,
+            subscribersNetFormatted: '+53.8K',
+            rpm: 1595.74,
+            cpm: 2744.67,
+            likes: 170050,
+            comments: 12569
+          };
+        } else {
+          agg = aggregateMetrics(filteredDaily, videoId);
+        }
+        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 2 Oct 2026' : formatDateRangeText(startStr, endStr);
 
         // Per-video analytics: use the video's actual stored metrics directly
         if (videoId) {
@@ -1232,7 +1265,7 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v24',
+      name: 'yt-studio-analytics-v32',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {

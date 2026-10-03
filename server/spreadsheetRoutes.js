@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createClient } from '@insforge/sdk';
 import { spreadsheetService } from './spreadsheet/index.js';
 import { normalizeForVideo } from './spreadsheet/normalize.js';
 
@@ -9,45 +8,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CRM_STORE_FILE = path.resolve(__dirname, 'crm_store.json');
 
-const insforgeServer = createClient({
-  baseUrl: 'https://hhgc52mf.ap-southeast.insforge.app',
-  anonKey: 'ik_a6fb7c9c4629443fd707d49bf6ad0d8e'
-});
-
 export function registerSpreadsheetRoutes(app) {
-  // Permanent CRM Storage endpoints backed by Insforge PostgreSQL
+  // Permanent CRM Storage endpoints backed by local JSON file (server/crm_store.json)
   app.get('/api/crm/data', async (req, res) => {
     try {
-      // 1. Fetch from Insforge DB
-      const [{ data: channelData }, { data: videosData }, { data: stateSnapshot }] = await Promise.all([
-        insforgeServer.database.from('crm_channel').select('*').limit(1).catch(() => ({ data: null })),
-        insforgeServer.database.from('crm_videos').select('*').order('sort_order', { ascending: true }).catch(() => ({ data: null })),
-        insforgeServer.database.from('crm_state').select('state_data').eq('key', 'current_state').single().catch(() => ({ data: null }))
-      ]);
-
-      if (channelData || videosData || stateSnapshot) {
-        return res.json({
-          success: true,
-          source: 'insforge_db',
-          data: {
-            channelInfo: channelData?.[0] || null,
-            videos: videosData || null,
-            stateData: stateSnapshot?.state_data || null
-          }
-        });
-      }
-
-      // 2. Fallback to local cache file
       if (fs.existsSync(CRM_STORE_FILE)) {
         const data = JSON.parse(fs.readFileSync(CRM_STORE_FILE, 'utf8'));
-        return res.json({ success: true, source: 'local_cache', data });
+        return res.json({ success: true, source: 'local_file', data });
       }
       return res.json({ success: true, data: null });
     } catch (err) {
-      if (fs.existsSync(CRM_STORE_FILE)) {
-        const data = JSON.parse(fs.readFileSync(CRM_STORE_FILE, 'utf8'));
-        return res.json({ success: true, source: 'local_cache', data });
-      }
+      console.error('[Server] Error reading crm_store.json:', err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -56,19 +27,9 @@ export function registerSpreadsheetRoutes(app) {
     try {
       const payload = req.body || {};
       fs.writeFileSync(CRM_STORE_FILE, JSON.stringify(payload, null, 2), 'utf8');
-
-      // Persist snapshot to Insforge
-      try {
-        await insforgeServer.database.from('crm_state').upsert({
-          key: 'current_state',
-          state_data: payload
-        });
-      } catch (dbErr) {
-        console.warn('[Server] Insforge DB snapshot note:', dbErr.message);
-      }
-
-      res.json({ success: true, savedAt: new Date().toISOString(), dbSynced: true });
+      res.json({ success: true, savedAt: new Date().toISOString(), permanentFile: true });
     } catch (err) {
+      console.error('[Server] Error saving crm_store.json:', err);
       res.status(500).json({ error: err.message });
     }
   });

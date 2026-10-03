@@ -71,7 +71,7 @@ export function computeDatesForPreset(presetKey, anchorDate) {
     return { start: formatDate(subDays(today, 364)), end: todayStr };
   }
   if (presetKey === 'lifetime' || presetKey === 'since_published') {
-    return { start: '2025-08-01', end: todayStr };
+    return { start: '2023-02-11', end: '2026-10-02' };
   }
   if (presetKey === '2026') {
     return { start: '2026-01-01', end: todayStr };
@@ -358,7 +358,6 @@ export default function CRM() {
     crmUpdateChannelMetrics, updateVideoMetrics,
     bulkSetVideoRPM, bulkMultiplyViews,
     crmApplyPreset, reloadFromSpreadsheet,
-    loadFromDatabase, isDatabaseLoading, isDatabaseConnected, lastDatabaseSync,
     showToast
   } = useStore();
 

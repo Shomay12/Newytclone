@@ -522,3 +522,37 @@
   100% { transform: rotate(360deg); }
 }
 
+.top-nav-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 20px;
+  transition: background-color 0.15s;
+}
+
+.top-nav-user-pill:hover {
+  background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.top-nav-user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.top-nav-user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.top-nav-user-role {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+

@@ -1,16 +1,13 @@
-import { createClient } from '@insforge/sdk';
+export const DATABASE_ENABLED = false;
 
 export const INSFORGE_CONFIG = {
-  baseUrl: 'https://hhgc52mf.ap-southeast.insforge.app',
-  anonKey: 'ik_a6fb7c9c4629443fd707d49bf6ad0d8e',
-  projectId: '781eb340-f9d7-4e99-b55d-c84fb3d6f54a',
-  projectName: 'yt_clone_data'
+  baseUrl: '',
+  anonKey: '',
+  projectId: '',
+  projectName: ''
 };
 
-export const insforge = createClient({
-  baseUrl: INSFORGE_CONFIG.baseUrl,
-  anonKey: INSFORGE_CONFIG.anonKey
-});
+export const insforge = null;
 
 export const parseAvdToSeconds = (avdStr, fallback = 105) => {
   if (typeof avdStr === 'number') return isNaN(avdStr) ? fallback : avdStr;
@@ -35,9 +32,12 @@ export const formatSecondsToAvd = (totalSecs) => {
 
 export const InsforgeService = {
   /**
-   * Load channel & videos data from Insforge PostgreSQL database.
+   * Load channel & videos data from database (disconnected).
    */
   async loadDatabaseData() {
+    if (!DATABASE_ENABLED || !insforge) {
+      return { success: false, disconnected: true, error: 'Database disconnected' };
+    }
     try {
       // 1. Load Channel Info
       const { data: channelData, error: channelErr } = await insforge.database
@@ -164,6 +164,7 @@ export const InsforgeService = {
    * Save Channel Metrics to Insforge crm_channel table.
    */
   async saveChannelMetrics(channelInfo) {
+    if (!DATABASE_ENABLED || !insforge) return { success: false, disconnected: true };
     if (!channelInfo) return;
     try {
       const payload = {
@@ -208,6 +209,7 @@ export const InsforgeService = {
    * Save Video Metrics to Insforge crm_videos table.
    */
   async saveVideoMetrics(videoId, videoData) {
+    if (!DATABASE_ENABLED || !insforge) return { success: false, disconnected: true };
     if (!videoId || !videoData) return;
     try {
       const views = Number(videoData.views) || 0;
@@ -266,6 +268,7 @@ export const InsforgeService = {
    * Save All Videos to Insforge crm_videos table in batch.
    */
   async saveAllVideos(videosList) {
+    if (!DATABASE_ENABLED || !insforge) return { success: false, disconnected: true };
     if (!Array.isArray(videosList) || videosList.length === 0) return;
     try {
       const records = videosList.map((v, idx) => {
@@ -324,34 +327,34 @@ export const InsforgeService = {
   },
 
   /**
-   * Persist full snapshot to crm_state table.
+   * Persist full snapshot to local/server endpoint.
    */
   async saveFullSnapshot(stateSnapshot) {
-    try {
-      const payload = {
-        key: 'current_state',
-        state_data: stateSnapshot
-      };
-
-      const { data, error } = await insforge.database
-        .from('crm_state')
-        .upsert(payload);
-
-      // Also backup to server endpoint
+    if (DATABASE_ENABLED && insforge) {
       try {
-        await fetch('/api/crm/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(stateSnapshot)
-        });
-      } catch {
-        // Fallback local save is best effort
-      }
+        const payload = {
+          key: 'current_state',
+          state_data: stateSnapshot
+        };
 
-      return { success: !error, data };
-    } catch (err) {
-      console.error('[Insforge] saveFullSnapshot error:', err);
-      return { success: false, error: err.message };
+        await insforge.database
+          .from('crm_state')
+          .upsert(payload);
+      } catch (err) {
+        console.error('[Insforge] saveFullSnapshot DB error:', err);
+      }
+    }
+
+    // Save to server endpoint (local)
+    try {
+      await fetch('/api/crm/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stateSnapshot)
+      });
+      return { success: true };
+    } catch {
+      return { success: false };
     }
   }
 };

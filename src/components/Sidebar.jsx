@@ -78,12 +78,12 @@ const Sidebar = ({ isCollapsed, onOpenSettings }) => {
         ) : (
           <div className="profile-section">
             <img 
-              src={channelInfo?.avatar || 'https://ui-avatars.com/api/?name=User&background=random'} 
+              src={channelInfo?.avatar || '/channel-avatar.png'} 
               alt="Channel Avatar" 
               className="channel-avatar" 
             />
-            <h2 className="channel-name">Your channel</h2>
-            <p className="channel-subtitle">{channelInfo?.name}</p>
+            <h2 className="channel-name">Channel</h2>
+            <p className="channel-subtitle">{channelInfo?.name || 'Jesus Is The Lord'}</p>
           </div>
         )
       )}

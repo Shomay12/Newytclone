@@ -237,7 +237,14 @@ const Analytics = () => {
 
   // Compute video upload marker points present within the rendered chart range
   const videoUploadPoints = useMemo(() => {
-    if (isVideoMode || !dailyWithTypical || dailyWithTypical.length === 0) return [];
+    if (isVideoMode) return [];
+    if (selectedDateRange === 'lifetime') {
+      return [
+        { date: '2026-08-25', count: 10, title: '9+ uploads', id: 'lifetime_marker_1' },
+        { date: '2026-09-28', count: 10, title: '9+ uploads', id: 'lifetime_marker_2' }
+      ];
+    }
+    if (!dailyWithTypical || dailyWithTypical.length === 0) return [];
     const dateSet = new Set(dailyWithTypical.map(d => d.date));
     const map = new Map();
     (videos || []).forEach(v => {
@@ -259,7 +266,7 @@ const Analytics = () => {
       });
     });
     return points;
-  }, [isVideoMode, dailyWithTypical, videos]);
+  }, [isVideoMode, selectedDateRange, dailyWithTypical, videos]);
 
   // Calculate dynamic Y-axis domain for Revenue chart with 5-10% padding
   const revenueDomain = useMemo(() => {
@@ -282,6 +289,9 @@ const Analytics = () => {
     if (selectedDateRange === 'first24') {
       return ['0', '4', '8', '12', '16', '20', '24 hours'];
     }
+    if (selectedDateRange === 'lifetime' && !isVideoMode) {
+      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-08-07'];
+    }
     if (!dailyWithTypical || dailyWithTypical.length === 0) return undefined;
     const len = dailyWithTypical.length;
     if (len <= 7) return dailyWithTypical.map(d => d.date);
@@ -295,7 +305,7 @@ const Analytics = () => {
       }
     }
     return ticks;
-  }, [dailyWithTypical, selectedDateRange]);
+  }, [dailyWithTypical, selectedDateRange, isVideoMode]);
 
   const formatXAxisDate = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string') return dateStr;
@@ -314,16 +324,25 @@ const Analytics = () => {
 
     if (isNaN(dateObj.getTime())) return dateStr;
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
     const month = monthNames[dateObj.getMonth()];
     const day = dateObj.getDate();
     const year = dateObj.getFullYear();
-    return `${month} ${day}, ${year}`;
+    return `${day} ${month} ${year}`;
   };
 
   const formatXAxisTick = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string') return '';
     if (dateStr.includes('hours') || dateStr === '0' || dateStr === '4' || dateStr === '8' || dateStr === '12' || dateStr === '16' || dateStr === '20' || dateStr === '24') return dateStr;
+    if (selectedDateRange === 'lifetime') {
+      if (dateStr === '2023-02-11') return '11 Feb ...';
+      if (dateStr === '2023-09-11') return '11 Sept 2023';
+      if (dateStr === '2024-04-10') return '10 Apr 2024';
+      if (dateStr === '2024-11-09') return '9 Nov 2024';
+      if (dateStr === '2025-06-09') return '9 Jun 2025';
+      if (dateStr === '2026-01-07') return '7 Jan 2026';
+      if (dateStr === '2026-08-07') return '7 Aug 2...';
+    }
     if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
 
     const parts = dateStr.split('-');
@@ -339,11 +358,11 @@ const Analytics = () => {
 
     if (isNaN(dateObj.getTime())) return dateStr;
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
     const month = monthNames[dateObj.getMonth()];
     const day = dateObj.getDate();
     const year = dateObj.getFullYear();
-    return `${month} ${day}, ${year}`;
+    return `${day} ${month} ${year}`;
   };
 
   const formatYAxisValue = (val) => {
@@ -498,15 +517,16 @@ const Analytics = () => {
   // Dynamic Realtime Calculations
   const realtime48hViews = isVideoMode
     ? (currentVideo.realtimeViews48h !== undefined ? Number(currentVideo.realtimeViews48h) : (currentVideo.views ? Math.round(Number(currentVideo.views) * 0.0055) : 0))
-    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : Math.round(((channelInfo.viewsLast28Days || aggregated.views || 21450000)) * 0.0056));
+    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 487);
 
   const realtimeScaledBars = useMemo(() => {
+    if (realtime48hViews <= 0) return [];
     const rawBars = realtimeDataset?.last48Hours || [];
     const rawTotal = rawBars.reduce((s, b) => s + (b.views || 0), 0) || 1;
     const factor = realtime48hViews / rawTotal;
     return rawBars.map(b => ({
       ...b,
-      views: Math.max(1, Math.round((b.views || 0) * factor))
+      views: Math.max(0, Math.round((b.views || 0) * factor))
     }));
   }, [realtimeDataset, realtime48hViews]);
 
@@ -662,15 +682,19 @@ const Analytics = () => {
 
               <div className="analytics-headline-box">
                 <h2 className="analytics-headline-title">
-                  {isVideoMode
-                    ? 'Views are up 51%! More people than usual are watching this video from YouTube search results.'
-                    : 'Keep it up! Your channel got about the same number of views as usual.'}
+                  {selectedDateRange === 'lifetime' && !isVideoMode
+                    ? 'Your channel has had 3,696,747 views so far'
+                    : (isVideoMode
+                      ? 'Views are up 51%! More people than usual are watching this video from YouTube search results.'
+                      : 'Keep it up! Your channel got about the same number of views as usual.')}
                 </h2>
-                <p className="analytics-headline-sub">
-                  {isVideoMode
-                    ? `This video has gotten ${aggregated.viewsFormatted || fmtV(currentVideo.views) || '0'} views since it was published`
-                    : `Your channel got ${aggregated.viewsFormatted} views in this selected period`}
-                </p>
+                {!(selectedDateRange === 'lifetime' && !isVideoMode) && (
+                  <p className="analytics-headline-sub">
+                    {isVideoMode
+                      ? `This video has gotten ${aggregated.viewsFormatted || fmtV(currentVideo.views) || '0'} views since it was published`
+                      : `Your channel got ${aggregated.viewsFormatted} views in this selected period`}
+                  </p>
+                )}
               </div>
 
               <div className="analytics-card hero-chart-card">
@@ -680,12 +704,21 @@ const Analytics = () => {
                     className={`metric-selector-item ${selectedMetric === 'views' ? 'active' : ''}`}
                     onClick={() => setSelectedMetric('views')}
                   >
-                    <div className="metric-selector-label">Views</div>
-                    <div className="metric-selector-val">
-                      <span>{aggregated.viewsFormatted || fmtV(currentVideo.views) || '0'}</span>
-                      <StudioCheckBadge style={{ marginLeft: '6px' }} />
+                    <div className="metric-selector-label">
+                      Views
+                      {selectedDateRange === 'lifetime' && !isVideoMode && (
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px', color: '#606060', verticalAlign: 'middle', marginLeft: '4px' }}>
+                          warning
+                        </span>
+                      )}
                     </div>
-                    <div className="metric-sub-label">{isVideoMode ? `${fmtV(Math.round(aggregated.views * 0.34))} more than usual` : 'About the same as usual'}</div>
+                    <div className="metric-selector-val">
+                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '37L' : (aggregated.viewsFormatted || fmtV(currentVideo.views) || '0')}</span>
+                      {selectedDateRange !== 'lifetime' && <StudioCheckBadge style={{ marginLeft: '6px' }} />}
+                    </div>
+                    {selectedDateRange !== 'lifetime' && (
+                      <div className="metric-sub-label">{isVideoMode ? `${fmtV(Math.round(aggregated.views * 0.34))} more than usual` : 'About the same as usual'}</div>
+                    )}
                   </div>
 
                   <div
@@ -694,10 +727,12 @@ const Analytics = () => {
                   >
                     <div className="metric-selector-label">Watch time (hours)</div>
                     <div className="metric-selector-val">
-                      <span>{(aggregated.watchTimeHrsFormatted || '0').replace(/\s*hrs\s*/gi, '')}</span>
-                      <StudioUpBadge style={{ marginLeft: '6px' }} />
+                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '6.4L' : (aggregated.watchTimeHrsFormatted || '0').replace(/\s*hrs\s*/gi, '')}</span>
+                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
                     </div>
-                    <div className="metric-sub-label">{isVideoMode ? '928.7 more than usual' : '928.7 more than usual'}</div>
+                    {selectedDateRange !== 'lifetime' && (
+                      <div className="metric-sub-label">{isVideoMode ? '928.7 more than usual' : '928.7 more than usual'}</div>
+                    )}
                   </div>
 
                   <div
@@ -706,22 +741,26 @@ const Analytics = () => {
                   >
                     <div className="metric-selector-label">Subscribers</div>
                     <div className="metric-selector-val">
-                      <span>{aggregated.subscribersNetFormatted || fmtS(aggregated.subscribersNet)}</span>
-                      <StudioUpBadge style={{ marginLeft: '6px' }} />
+                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '+53.8K' : (aggregated.subscribersNetFormatted || fmtS(aggregated.subscribersNet))}</span>
+                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
                     </div>
-                    <div className="metric-sub-label">150% more than previous 28 days</div>
+                    {selectedDateRange !== 'lifetime' && (
+                      <div className="metric-sub-label">150% more than previous 28 days</div>
+                    )}
                   </div>
 
                   <div
                     className={`metric-selector-item ${selectedMetric === 'revenue' ? 'active' : ''}`}
                     onClick={() => setSelectedMetric('revenue')}
                   >
-                    <div className="metric-selector-label">Estimated revenue <span className="material-symbols-outlined card-info-icon">info</span></div>
+                    <div className="metric-selector-label">Estimated revenue {selectedDateRange !== 'lifetime' && <span className="material-symbols-outlined card-info-icon">info</span>}</div>
                     <div className="metric-selector-val">
-                      <span>{formatINR(aggregated.revenueFormatted || aggregated.revenue || 0)}</span>
-                      <StudioUpBadge style={{ marginLeft: '6px' }} />
+                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '₹58,99,062.78' : formatINR(aggregated.revenueFormatted || aggregated.revenue || 0)}</span>
+                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
                     </div>
-                    <div className="metric-sub-label">{isVideoMode ? `${formatINR(aggregated.revenue * 0.05)} more than usual` : '₹6,060.65 more than usual'}</div>
+                    {selectedDateRange !== 'lifetime' && (
+                      <div className="metric-sub-label">{isVideoMode ? `${formatINR(aggregated.revenue * 0.05)} more than usual` : '₹6,060.65 more than usual'}</div>
+                    )}
                   </div>
                 </div>
 
@@ -756,6 +795,8 @@ const Analytics = () => {
                         tickMargin={8}
                         width={48}
                         allowDecimals={false}
+                        domain={selectedDateRange === 'lifetime' && !isVideoMode && selectedMetric === 'views' ? [0, 30000] : [0, 'auto']}
+                        ticks={selectedDateRange === 'lifetime' && !isVideoMode && selectedMetric === 'views' ? [0, 10000, 20000, 30000] : undefined}
                         tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
                         tickFormatter={(v) => selectedMetric === 'revenue' ? `₹${formatYAxisValue(v)}` : formatYAxisValue(v)}
                       />
@@ -778,32 +819,32 @@ const Analytics = () => {
                           shape={(props) => {
                             if (!props.cx || !props.cy) return null;
                             return (
-                              <g transform={`translate(${props.cx - 9}, ${props.cy - 10})`} style={{ cursor: 'pointer' }}>
+                              <g transform={`translate(${props.cx - 10}, ${props.cy - 12})`} style={{ cursor: 'pointer' }}>
                                 <title>{`${v.title} (${v.date})`}</title>
                                 <rect
                                   x="0"
                                   y="0"
-                                  width="18"
-                                  height="14"
-                                  rx="2"
-                                  fill="#505050"
-                                  stroke="#333333"
+                                  width="20"
+                                  height="13"
+                                  rx="2.5"
+                                  fill="#606060"
+                                  stroke="#444444"
                                   strokeWidth="1"
                                 />
                                 {v.count > 1 ? (
                                   <text
-                                    x="9"
-                                    y="10.5"
+                                    x="10"
+                                    y="9.5"
                                     fill="#ffffff"
-                                    fontSize="10"
+                                    fontSize="9"
                                     fontWeight="600"
                                     textAnchor="middle"
                                     fontFamily="Roboto, Inter, sans-serif"
                                   >
-                                    {v.count}
+                                    {v.count >= 9 ? '9+' : v.count}
                                   </text>
                                 ) : (
-                                  <polygon points="7,4 12,7 7,10" fill="#ffffff" />
+                                  <polygon points="7,3.5 13,6.5 7,9.5" fill="#ffffff" />
                                 )}
                               </g>
                             );
@@ -913,7 +954,7 @@ const Analytics = () => {
 
                     <div className="top-content-list">
                       {[...videos]
-                        .sort((a, b) => (b.views || 0) - (a.views || 0))
+                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
                         .slice(0, 4)
                         .map((vid, idx) => {
                           const avgDurSecs = vid.avgViewDurationSecs || 240;
@@ -972,13 +1013,17 @@ const Analytics = () => {
                 {!isVideoMode && <div className="realtime-sub-text">Views · Last 48 hours</div>}
 
                 <div className="realtime-bar-chart-box">
-                  <ResponsiveContainer width="100%" height={60}>
-                    <BarChart data={realtimeScaledBars}>
-                      <Bar dataKey="views" fill="#35b7e6" radius={[1, 1, 0, 0]} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {realtime48hViews > 0 ? (
+                    <ResponsiveContainer width="100%" height={60}>
+                      <BarChart data={realtimeScaledBars}>
+                        <Bar dataKey="views" fill="#35b7e6" radius={[1, 1, 0, 0]} isAnimationActive={false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', borderBottom: '1px solid #cccccc', marginBottom: '4px' }} />
+                  )}
                   <div className="chart-time-labels">
-                    <span>-48h</span>
+                    <span>-48 h</span>
                     <span>Now</span>
                   </div>
                 </div>
@@ -1020,7 +1065,7 @@ const Analytics = () => {
                       <div className="rail-content-row" key={v.id}>
                         <img src={v.thumbnail} alt="" />
                         <span className="rail-title">{v.title}</span>
-                        <span className="rail-val">{(Number(v.views || 0) * 0.0055 >= 1000 ? Math.round(Number(v.views || 0) * 0.0055).toLocaleString('en-IN') : Math.round(Number(v.views || 0) * 0.0055))}</span>
+                        <span className="rail-val">{Number(v.views || 0).toLocaleString('en-IN')}</span>
                       </div>
                     ))}
                   </div>

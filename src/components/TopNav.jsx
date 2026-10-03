@@ -250,12 +250,21 @@ const TopNav = ({ onToggleSidebar }) => {
 
           {/* Profile Dropdown */}
           <div className="dropdown-wrapper">
-            <img 
-              src={channelInfo.avatar} 
-              alt="Profile" 
-              className="profile-pic"
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)} 
-            />
+            <div
+              className="top-nav-user-pill"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              title="Account"
+            >
+              <img 
+                src={channelInfo.avatar || '/channel-avatar.png'} 
+                alt="Profile" 
+                className="profile-pic"
+              />
+              <div className="top-nav-user-info">
+                <span className="top-nav-user-name">{channelInfo.name || 'Jesus Is The Lord'}</span>
+                <span className="top-nav-user-role">You're a manager</span>
+              </div>
+            </div>
 
             {showProfileDropdown && (
               <div className="profile-dropdown-menu">

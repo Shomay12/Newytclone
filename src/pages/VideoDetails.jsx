@@ -9,7 +9,7 @@ const VideoDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { videos, playlists, comments, copyrightClaims, updateVideo, showToast } = useStore();
-  
+
   const [activeTab, setActiveTab] = useState('Details');
   const [formData, setFormData] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ const VideoDetails = () => {
             <p className="video-header-subtitle">{video.title}</p>
           </div>
         </div>
-        
+
         {activeTab === 'Details' && (
           <div className="header-actions">
             <button className="undo-btn" disabled={!hasChanges} onClick={handleUndo}>UNDO CHANGES</button>
@@ -71,8 +71,8 @@ const VideoDetails = () => {
       {/* Sub-Navigation Tabs */}
       <div className="content-tabs">
         {['Details', 'Analytics', 'Editor', 'Comments', 'Subtitles', 'Copyright'].map(tab => (
-          <button 
-            key={tab} 
+          <button
+            key={tab}
             className={`tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
@@ -87,19 +87,19 @@ const VideoDetails = () => {
           <div className="details-form-column">
             <div className="form-group">
               <label>Title (required)</label>
-              <input 
-                type="text" 
-                value={formData.title} 
-                onChange={e => setFormData({...formData, title: e.target.value})} 
+              <input
+                type="text"
+                value={formData.title}
+                onChange={e => setFormData({ ...formData, title: e.target.value })}
                 className="form-input"
               />
             </div>
-            
+
             <div className="form-group">
               <label>Description</label>
-              <textarea 
-                value={formData.description || ''} 
-                onChange={e => setFormData({...formData, description: e.target.value})} 
+              <textarea
+                value={formData.description || ''}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
                 className="form-textarea"
                 rows="6"
               />
@@ -107,10 +107,10 @@ const VideoDetails = () => {
 
             <div className="form-group">
               <label>Thumbnail Image URL</label>
-              <input 
-                type="text" 
-                value={formData.thumbnail} 
-                onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
+              <input
+                type="text"
+                value={formData.thumbnail}
+                onChange={e => setFormData({ ...formData, thumbnail: e.target.value })}
                 className="form-input"
               />
             </div>
@@ -118,9 +118,9 @@ const VideoDetails = () => {
             <div className="form-row-2">
               <div className="form-group">
                 <label>Visibility</label>
-                <select 
-                  value={formData.visibility} 
-                  onChange={e => setFormData({...formData, visibility: e.target.value})}
+                <select
+                  value={formData.visibility}
+                  onChange={e => setFormData({ ...formData, visibility: e.target.value })}
                   className="form-select"
                 >
                   <option value="Public">Public</option>
@@ -131,9 +131,9 @@ const VideoDetails = () => {
 
               <div className="form-group">
                 <label>Playlist</label>
-                <select 
-                  value={formData.playlist || ''} 
-                  onChange={e => setFormData({...formData, playlist: e.target.value})}
+                <select
+                  value={formData.playlist || ''}
+                  onChange={e => setFormData({ ...formData, playlist: e.target.value })}
                   className="form-select"
                 >
                   <option value="">Select Playlist</option>
@@ -148,20 +148,20 @@ const VideoDetails = () => {
               <label>Audience</label>
               <div className="radio-group-box">
                 <label className="radio-label">
-                  <input 
-                    type="radio" 
-                    name="audience" 
-                    checked={formData.audience === 'Yes, made for kids'} 
-                    onChange={() => setFormData({...formData, audience: 'Yes, made for kids'})}
+                  <input
+                    type="radio"
+                    name="audience"
+                    checked={formData.audience === 'Yes, made for kids'}
+                    onChange={() => setFormData({ ...formData, audience: 'Yes, made for kids' })}
                   />
                   <span>Yes, it's made for kids</span>
                 </label>
                 <label className="radio-label">
-                  <input 
-                    type="radio" 
-                    name="audience" 
-                    checked={formData.audience !== 'Yes, made for kids'} 
-                    onChange={() => setFormData({...formData, audience: 'Not made for kids'})}
+                  <input
+                    type="radio"
+                    name="audience"
+                    checked={formData.audience !== 'Yes, made for kids'}
+                    onChange={() => setFormData({ ...formData, audience: 'Not made for kids' })}
                   />
                   <span>No, it's not made for kids</span>
                 </label>
@@ -171,9 +171,9 @@ const VideoDetails = () => {
             <div className="form-row-2">
               <div className="form-group">
                 <label>Category</label>
-                <select 
-                  value={formData.category || 'Science & Technology'} 
-                  onChange={e => setFormData({...formData, category: e.target.value})}
+                <select
+                  value={formData.category || 'Science & Technology'}
+                  onChange={e => setFormData({ ...formData, category: e.target.value })}
                   className="form-select"
                 >
                   <option value="Science & Technology">Science & Technology</option>
@@ -185,9 +185,9 @@ const VideoDetails = () => {
 
               <div className="form-group">
                 <label>License</label>
-                <select 
-                  value={formData.license || 'Standard YouTube License'} 
-                  onChange={e => setFormData({...formData, license: e.target.value})}
+                <select
+                  value={formData.license || 'Standard YouTube License'}
+                  onChange={e => setFormData({ ...formData, license: e.target.value })}
                   className="form-select"
                 >
                   <option value="Standard YouTube License">Standard YouTube License</option>
@@ -198,10 +198,10 @@ const VideoDetails = () => {
 
             <div className="form-group">
               <label>Tags (comma separated)</label>
-              <input 
-                type="text" 
-                value={formData.tags || ''} 
-                onChange={e => setFormData({...formData, tags: e.target.value})} 
+              <input
+                type="text"
+                value={formData.tags || ''}
+                onChange={e => setFormData({ ...formData, tags: e.target.value })}
                 className="form-input"
               />
             </div>
@@ -220,7 +220,7 @@ const VideoDetails = () => {
               <a href={`https://youtu.be/${formData.id}`} target="_blank" rel="noreferrer" className="info-link">
                 https://youtu.be/{formData.id}
               </a>
-              
+
               <p className="info-label mt-3">Filename</p>
               <p className="info-text">render_master_{formData.id}.mp4</p>
 

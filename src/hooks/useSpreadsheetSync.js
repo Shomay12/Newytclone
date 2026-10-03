@@ -4,7 +4,7 @@ import { SpreadsheetDataService } from '../services/SpreadsheetDataService';
 
 export function useSpreadsheetSync() {
   const {
-    loadFromDatabase,
+    loadPermanentState,
     loadFromSpreadsheet,
     spreadsheetConfig,
     isSpreadsheetLoading,
@@ -15,18 +15,22 @@ export function useSpreadsheetSync() {
   const unsubscribeRef = useRef(null);
 
   useEffect(() => {
-    // Attempt loading persistent state from Insforge Database first
-    loadFromDatabase(true).then((success) => {
-      if (!success) {
-        loadFromSpreadsheet(true);
-      }
-    });
+    // Permanent local file state load (no database required)
+    if (loadPermanentState) {
+      loadPermanentState().then((loaded) => {
+        if (!loaded) {
+          loadFromSpreadsheet(true);
+        }
+      });
+    } else {
+      loadFromSpreadsheet(true);
+    }
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (unsubscribeRef.current) unsubscribeRef.current();
     };
-  }, [loadFromDatabase, loadFromSpreadsheet]);
+  }, [loadPermanentState, loadFromSpreadsheet]);
 
   useEffect(() => {
     // Cross-tab real-time sync for CRM updates

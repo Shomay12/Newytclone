@@ -11,14 +11,16 @@
  */
 
 export const CHANNEL_BENCHMARKS = {
-  name: 'Soul Signs',
-  handle: '@kidstoon',
-  subscribers: 128547,
-  lifetimeViews: 21450000,
-  averageRpm: 33.64,
-  averageCpm: 58.00,
-  joinedDate: '2021-03-15',
-  country: 'United States',
+  name: 'Jesus Is The Lord',
+  handle: '@jesusisthelord',
+  subscribers: 53822,
+  lifetimeViews: 3696747,
+  lifetimeWatchTime: 640000,
+  lifetimeRevenue: 5899062.78,
+  averageRpm: 1595.74,
+  averageCpm: 2750.00,
+  joinedDate: '2023-02-11',
+  country: 'India',
   avatar: '/channel-avatar.png',
   banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80'
 };
@@ -37,16 +39,16 @@ export const VIDEO_ID_TO_DATE = {
 };
 
 export const TITLE_TO_SCHEDULE_DATE = {
-  'This Man Truly Loves You But Why Is There Still Another Woman in His Life?': '2026-07-21',
-  'Long AI Video Kaise Banaye (14 Min Video) | AI Video Kaise Banaye | AI Video Maker': '2026-07-16',
-  'Create Kids Cartoon Nursery Rhymes with AI | AI Video Kaise Banaye | AI Video Maker': '2026-07-11',
-  'AI Blogging Course in 2026 using facebook, Instagram Youtube...': '2026-07-06',
-  'बिना चेहरा दिखाए YouTube Video कैसे बनाए ? New Channel Ideas | YouTube search': '2026-07-01',
-  'Make AI Videos Using Notebook LM': '2026-06-26',
-  'Raj Shamani Business Idea': '2026-06-21',
-  'How to Make AI Influencers For FREE | Lip Sync Dancing AI Influencer...': '2026-06-16',
-  'This AI Saved Me 20 Hours': '2026-06-11',
-  'My Biggest AI Project Yet': '2026-06-06'
+  '5 Signs Jesus Is About To Bless Your Home And family': '2026-07-21',
+  'Jesus Is Protecting You From Something You Cannot See': '2026-07-16',
+  'Jesus Is About To Open A New Door In Your Life That Could Change Everything': '2026-07-11',
+  'When God Closes A Door, He Is Preparing Something Greater For You': '2026-07-06',
+  'Jesus Is Speaking To You: Take My Hand And Do Not Be Afraid': '2026-07-01',
+  'Why Did God Allow This To Happen? A Message Of Hope & Healing': '2026-06-26',
+  'Listen Carefully: God Is Removing People Who Don\'t Belong In Your Future': '2026-06-21',
+  'The Lord Says: Your Financial Miracle Is On The Way | Prophetic Word': '2026-06-16',
+  'Miracle Prayer For Healing, Peace & Overcoming Any Anxiety': '2026-06-11',
+  'God Is About To Bless You Beyond Your Imagination - Claim It Now': '2026-06-06'
 };
 
 export const VIDEO_PUBLISH_SCHEDULE = [
@@ -65,69 +67,98 @@ export const VIDEO_PUBLISH_SCHEDULE = [
 export const RAW_VIDEOS = [
   {
     id: 'VID001',
-    title: 'This Man Truly Loves You But Why Is There Still Another Woman in His Life?',
-    description: 'This Man Truly Loves You But Why Is There Still Another Woman in His Life?',
+    title: '5 signs Jesus is about to bless your Home and family',
+    description: '5 signs Jesus is about to bless your Home and family',
     duration: '25:00',
     durationSecs: 1500,
     avgViewDuration: '12:51',
     avgViewDurationSecs: 771,
-    views: 240496,
+    views: 131,
     ctr: 8.9,
     rpm: 427.2365,
     cpm: 58.65,
     publishDate: '2026-07-21',
-    thumbnail: '/thumbnails/latest_video.png',
+    thumbnail: '/thumbnails/5_signs_jesus.png',
     category: 'Entertainment',
-    watchTimeHrs: 51480,
-    revenue: 102748.67,
-    revenueFormatted: '₹1,02,748.67',
-    watchTimeHrsFormatted: '51.48K hrs',
-    subscribersGained: 4279,
+    watchTimeHrs: 28.2,
+    revenue: 55.93,
+    revenueFormatted: '₹55.93',
+    watchTimeHrsFormatted: '28.2 hrs',
+    subscribersGained: 3,
     subscribersLost: 0,
-    netSubscribers: 4279,
-    subscribersNet: 4279,
-    viewsFormatted: '240.5K',
-    subscribersNetFormatted: '+4.3K',
-    subscribersGainedFormatted: '+4.3K',
-    realtimeViews48h: 294,
-    realtimeViews60m: 18
+    netSubscribers: 3,
+    subscribersNet: 3,
+    viewsFormatted: '131',
+    subscribersNetFormatted: '+3',
+    subscribersGainedFormatted: '+3',
+    sortOrder: 1,
+    realtimeViews48h: 0,
+    realtimeViews60m: 0
   },
   {
     id: 'VID002',
-    title: 'Long AI Video Kaise Banaye (14 Min Video) | AI Video Kaise Banaye | AI Video Maker',
-    description: 'Full 14 minute long AI video creation masterclass.',
+    title: 'Jesus is protecting You From Something You Cannot See',
+    description: 'Jesus is protecting You From Something You Cannot See',
     duration: '14:22',
     durationSecs: 862,
     avgViewDuration: '3:45',
     avgViewDurationSecs: 225,
-    views: 892000,
+    views: 97,
     ctr: 7.2,
     rpm: 33.80,
     cpm: 58.14,
     publishDate: '2026-07-16',
-    thumbnail: '/thumbnails/2.webp',
-    category: 'Entertainment'
+    thumbnail: '/thumbnails/jesus_protecting_you.png',
+    category: 'Entertainment',
+    watchTimeHrs: 21.4,
+    revenue: 41.20,
+    revenueFormatted: '₹41.20',
+    watchTimeHrsFormatted: '21.4 hrs',
+    subscribersGained: 2,
+    subscribersLost: 0,
+    netSubscribers: 2,
+    subscribersNet: 2,
+    viewsFormatted: '97',
+    subscribersNetFormatted: '+2',
+    subscribersGainedFormatted: '+2',
+    sortOrder: 2,
+    realtimeViews48h: 0,
+    realtimeViews60m: 0
   },
   {
     id: 'VID003',
-    title: 'Create Kids Cartoon Nursery Rhymes with AI | AI Video Kaise Banaye | AI Video Maker',
-    description: 'Nursery rhymes cartoon video creation using AI tools.',
+    title: 'Jesus Is About to Open a New Door in Your Life That Could Change Everything',
+    description: 'Jesus Is About to Open a New Door in Your Life That Could Change Everything',
     duration: '12:14',
     durationSecs: 734,
     avgViewDuration: '2:57',
     avgViewDurationSecs: 177,
-    views: 650000,
+    views: 84,
     ctr: 6.4,
     rpm: 33.80,
     cpm: 58.14,
     publishDate: '2026-07-11',
-    thumbnail: '/thumbnails/3.webp',
-    category: 'Entertainment'
+    thumbnail: '/thumbnails/jesus_open_door.png',
+    category: 'Entertainment',
+    watchTimeHrs: 18.5,
+    revenue: 35.70,
+    revenueFormatted: '₹35.70',
+    watchTimeHrsFormatted: '18.5 hrs',
+    subscribersGained: 2,
+    subscribersLost: 0,
+    netSubscribers: 2,
+    subscribersNet: 2,
+    viewsFormatted: '84',
+    subscribersNetFormatted: '+2',
+    subscribersGainedFormatted: '+2',
+    sortOrder: 3,
+    realtimeViews48h: 0,
+    realtimeViews60m: 0
   },
   {
     id: 'VID004',
-    title: 'AI Blogging Course in 2026 using facebook, Instagram Youtube...',
-    description: 'Full course on AI blogging, social media traffic & monetization.',
+    title: 'When God Closes A Door, He Is Preparing Something Greater For You',
+    description: 'Trust God\'s divine timing and purpose when things don\'t go as planned.',
     duration: '10:18',
     durationSecs: 618,
     avgViewDuration: '3:12',
@@ -142,8 +173,8 @@ export const RAW_VIDEOS = [
   },
   {
     id: 'VID005',
-    title: 'बिना चेहरा दिखाए YouTube Video कैसे बनाए ? New Channel Ideas | YouTube search',
-    description: 'Faceless YouTube channel ideas and automation guide.',
+    title: 'Jesus Is Speaking To You: Take My Hand And Do Not Be Afraid',
+    description: 'Listen to this touching message of Jesus calling you to lay down your worries.',
     duration: '10:18',
     durationSecs: 618,
     avgViewDuration: '1:51',
@@ -158,8 +189,8 @@ export const RAW_VIDEOS = [
   },
   {
     id: 'VID006',
-    title: 'Make AI Videos Using Notebook LM',
-    description: 'Learn to build videos with NotebookLM.',
+    title: 'Why Did God Allow This To Happen? A Message Of Hope & Healing',
+    description: 'Find solace and strength during trials and difficult seasons in life.',
     duration: '12:14',
     durationSecs: 734,
     avgViewDuration: '0:31',
@@ -169,13 +200,13 @@ export const RAW_VIDEOS = [
     rpm: 34.50,
     cpm: 59.34,
     publishDate: '2026-06-26',
-    thumbnail: '/thumbnails/4.webp',
+    thumbnail: '/thumbnails/6.webp',
     category: 'Science & Technology'
   },
   {
     id: 'VID007',
-    title: 'Raj Shamani Business Idea',
-    description: 'Analyzing top business ideas and SaaS strategies.',
+    title: 'Listen Carefully: God Is Removing People Who Don\'t Belong In Your Future',
+    description: 'Understanding spiritual pruning and alignment for your destiny.',
     duration: '08:42',
     durationSecs: 522,
     avgViewDuration: '0:46',
@@ -185,13 +216,13 @@ export const RAW_VIDEOS = [
     rpm: 33.20,
     cpm: 57.10,
     publishDate: '2026-06-21',
-    thumbnail: '/thumbnails/5.webp',
+    thumbnail: '/thumbnails/7.webp',
     category: 'Business'
   },
   {
     id: 'VID008',
-    title: 'How to Make AI Influencers For FREE | Lip Sync Dancing AI Influencer...',
-    description: 'Create AI influencers with lip-sync and dancing animations for free.',
+    title: 'The Lord Says: Your Financial Miracle Is On The Way | Prophetic Word',
+    description: 'A message of faith, abundance and breakthrough in financial hardships.',
     duration: '07:56',
     durationSecs: 476,
     avgViewDuration: '2:03',
@@ -201,13 +232,13 @@ export const RAW_VIDEOS = [
     rpm: 33.40,
     cpm: 57.45,
     publishDate: '2026-06-16',
-    thumbnail: '/thumbnails/7.webp',
+    thumbnail: '/thumbnails/2.webp',
     category: 'Entertainment'
   },
   {
     id: 'VID009',
-    title: 'This AI Saved Me 20 Hours',
-    description: 'Automation tools saving developer and creator time.',
+    title: 'Miracle Prayer For Healing, Peace & Overcoming Any Anxiety',
+    description: 'Join this sacred prayer session for mental peace and supernatural healing.',
     duration: '09:31',
     durationSecs: 571,
     avgViewDuration: '3:45',
@@ -217,13 +248,13 @@ export const RAW_VIDEOS = [
     rpm: 34.00,
     cpm: 58.48,
     publishDate: '2026-06-11',
-    thumbnail: '/thumbnails/2.webp',
+    thumbnail: '/thumbnails/3.webp',
     category: 'Science & Technology'
   },
   {
     id: 'VID010',
-    title: 'My Biggest AI Project Yet',
-    description: 'Unveiling autonomous AI agent architecture built over 3 months.',
+    title: 'God Is About To Bless You Beyond Your Imagination - Claim It Now',
+    description: 'Claim your blessings and receive God\'s divine favour into your life.',
     duration: '07:56',
     durationSecs: 476,
     avgViewDuration: '3:20',
@@ -233,7 +264,7 @@ export const RAW_VIDEOS = [
     rpm: 33.60,
     cpm: 57.79,
     publishDate: '2026-06-06',
-    thumbnail: '/thumbnails/3.webp',
+    thumbnail: '/thumbnails/4.webp',
     category: 'Science & Technology'
   }
 ];
@@ -475,6 +506,215 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
   return dailyData;
 }
 
+/**
+ * Generate accurate Lifetime time series data (11 Feb 2023 – 2 Oct 2026, 1330 days)
+ * Exactly replicating the YouTube Studio Lifetime graph:
+ * - Feb 2023 - May 2023: Heavy viral launch explosion (multi-peaks oscillating up to ~28K)
+ * - Jun 2023 - Sep 2023: Second wave peaking at ~22K in Aug/Sep
+ * - Oct 2023 - Oct 2024: Low steady organic baseline (~2K-5K)
+ * - Nov 2024: Steep algorithm viral spike peaking at ~20K
+ * - Jan 2025 - Dec 2025: Stable baseline (~1.5K-4K)
+ * - Jan 2026: Upload surge peaking at ~10.5K
+ * - Feb 2026 - 2 Oct 2026: Decaying tail to ~200-400
+ * - Exactly sums to:
+ *   - Views: 3,696,747 (37L)
+ *   - Watch Time: 640,000 hrs (6.4L)
+ *   - Subscribers: 53,822 (+53.8K)
+ *   - Revenue: ₹58,99,062.78
+ */
+export function generateLifetimeTimeSeries() {
+  const startDate = new Date('2023-02-11T00:00:00Z');
+  const endDate = new Date('2026-10-02T00:00:00Z');
+  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1330 days
+
+  const TARGET_VIEWS = 3696747;
+  const TARGET_WATCH_HOURS = 640000;
+  const TARGET_SUBS = 53822;
+  const TARGET_REVENUE = 5899062.78;
+
+  const rawPoints = [];
+
+  for (let t = 0; t < totalDays; t++) {
+    const curDate = new Date(startDate);
+    curDate.setUTCDate(curDate.getUTCDate() + t);
+    const dateStr = curDate.toISOString().split('T')[0];
+
+    const r1 = getDeterministicRandom(dateStr, 101);
+    const r2 = getDeterministicRandom(dateStr, 202);
+    const r3 = getDeterministicRandom(dateStr, 303);
+    const jaggedNoise = 0.84 + r1 * 0.32;
+
+    let baseViews = 0;
+
+    if (t === 0) {
+      baseViews = 0;
+    } else if (t < 115) {
+      // Phase 1: Feb 11, 2023 – May 31, 2023 (Launch wave: sharp 28.5K peak, then 24K, 25K peaks, dropping to 4K)
+      const subT = t;
+      let shape = 0;
+      if (subT <= 6) {
+        // Immediate steep ramp to 28,500
+        shape = (subT / 6) * 28500;
+      } else if (subT <= 16) {
+        // Sharp drop to ~9,000
+        const f = (subT - 6) / 10;
+        shape = 28500 - f * 19500;
+      } else if (subT <= 26) {
+        // Surge back up to ~23,800
+        const f = (subT - 16) / 10;
+        shape = 9000 + f * 14800;
+      } else if (subT <= 35) {
+        // Dip to ~17,500
+        const f = (subT - 26) / 9;
+        shape = 23800 - f * 6300;
+      } else if (subT <= 46) {
+        // Surge to ~25,200
+        const f = (subT - 35) / 11;
+        shape = 17500 + f * 7700;
+      } else if (subT <= 62) {
+        // Dip to ~12,000
+        const f = (subT - 46) / 16;
+        shape = 25200 - f * 13200;
+      } else if (subT <= 76) {
+        // Small surge to ~18,000
+        const f = (subT - 62) / 14;
+        shape = 12000 + f * 6000;
+      } else {
+        // Decaying down to ~4,000
+        const f = (subT - 76) / (115 - 76);
+        shape = 18000 - f * 14000;
+      }
+      // Add jagged high-frequency noise
+      const localJitter = 0.88 + r2 * 0.24 + Math.sin(subT * 0.9) * 0.08;
+      baseViews = shape * localJitter;
+    } else if (t < 235) {
+      // Phase 2: Jun 1, 2023 – Sep 30, 2023 (Second wave peaking at 22K in Aug, then dropping into Sept)
+      const subT = t - 115;
+      let shape = 0;
+      if (subT <= 35) {
+        // Quiet baseline ~3,500 - 6,000
+        shape = 4000 + Math.sin(subT * 0.2) * 1500;
+      } else if (subT <= 65) {
+        // Steep rise to ~22,200 peak
+        const f = (subT - 35) / 30;
+        shape = 5500 + f * 16700;
+      } else if (subT <= 85) {
+        // Jagged decline to ~11,000
+        const f = (subT - 65) / 20;
+        shape = 22200 - f * 11200;
+      } else {
+        // Dropping to ~2,500
+        const f = (subT - 85) / (120 - 85);
+        shape = 11000 - f * 8500;
+      }
+      baseViews = shape * jaggedNoise;
+    } else if (t < 615) {
+      // Phase 3: Oct 1, 2023 – Oct 15, 2024 (Low organic baseline, 1.5K - 4.5K with small spikes)
+      const subT = t - 235;
+      const spike1 = Math.exp(-Math.pow((subT - 40) / 6, 2)) * 6200;  // Nov 2023 bump to ~8.5K
+      const spike2 = Math.exp(-Math.pow((subT - 125) / 7, 2)) * 5500; // Feb 2024 bump to ~7.8K
+      const spike3 = Math.exp(-Math.pow((subT - 180) / 6, 2)) * 4800; // Apr 2024 bump
+      const rampUp = subT > 330 ? ((subT - 330) / 50) * 5000 : 0;     // Pre-viral ramp in Sept/Oct 2024
+      const baseline = 2200 + Math.sin(subT * 0.07) * 800 + spike1 + spike2 + spike3 + rampUp;
+      baseViews = Math.max(900, baseline * (0.80 + r3 * 0.40));
+    } else if (t < 695) {
+      // Phase 4: Oct 16, 2024 – Dec 31, 2024 (Nov 2024 Viral spike peaking at ~20.8K)
+      const subT = t - 615;
+      const peakNov = Math.exp(-Math.pow((subT - 22) / 10, 2)) * 18500;
+      const baseline = 2300 + peakNov;
+      baseViews = Math.max(1200, baseline * (0.86 + r2 * 0.28));
+    } else if (t < 1045) {
+      // Phase 5: Jan 1, 2025 – Dec 15, 2025 (Low quiet baseline, fading to <1K)
+      const subT = t - 695;
+      const smallBump = Math.exp(-Math.pow((subT - 40) / 12, 2)) * 3200; // Feb 2025 minor bump
+      const decay = Math.max(0.35, 1 - (subT / 350) * 0.65);
+      const baseline = (1800 + smallBump) * decay;
+      baseViews = Math.max(250, baseline * (0.82 + r1 * 0.36));
+    } else if (t < 1105) {
+      // Phase 6: Dec 16, 2025 – Feb 15, 2026 (Jan 7, 2026 upload spike peaking at ~11.2K)
+      const subT = t - 1045;
+      const peakJan = Math.exp(-Math.pow((subT - 22) / 6.5, 2)) * 10800;
+      const baseline = 400 + peakJan;
+      baseViews = Math.max(200, baseline * (0.90 + r2 * 0.20));
+    } else {
+      // Phase 7: Feb 16, 2026 – Oct 2, 2026 (Flat quiet line along baseline ~80-250 views/day)
+      const subT = t - 1105;
+      const tail = Math.exp(-subT * 0.03) * 600;
+      const baseline = 120 + tail;
+      baseViews = Math.max(50, baseline * (0.80 + r3 * 0.40));
+    }
+
+    rawPoints.push({
+      date: dateStr,
+      day: `Day ${t + 1}`,
+      rawViews: Math.max(0, Math.round(baseViews))
+    });
+  }
+
+  // Exact Normalization to match 3,696,747 views, 640K hrs watch time, 53.8K subs, ₹58,99,062.78
+  const rawSum = rawPoints.reduce((acc, p) => acc + p.rawViews, 0) || 1;
+  const viewScale = TARGET_VIEWS / rawSum;
+
+  let cumulativeSubs = 0;
+  let runningViews = 0;
+  let runningWatch = 0;
+  let runningRev = 0;
+
+  const result = rawPoints.map((p, idx) => {
+    const isLast = idx === rawPoints.length - 1;
+    let views = Math.round(p.rawViews * viewScale);
+    runningViews += views;
+
+    if (isLast) {
+      const diff = TARGET_VIEWS - runningViews;
+      views += diff;
+    }
+
+    const watchTimeHrs = parseFloat(((views / TARGET_VIEWS) * TARGET_WATCH_HOURS).toFixed(1));
+    runningWatch += watchTimeHrs;
+
+    const revenue = parseFloat(((views / TARGET_VIEWS) * TARGET_REVENUE).toFixed(2));
+    runningRev += revenue;
+
+    const subsGained = Math.round((views / TARGET_VIEWS) * TARGET_SUBS * 1.08);
+    const subsLost = Math.round(subsGained * 0.074);
+    const subsNet = subsGained - subsLost;
+    cumulativeSubs += subsNet;
+
+    const avgDurationSecs = Math.round((watchTimeHrs * 3600) / (views || 1));
+    const mins = Math.floor(avgDurationSecs / 60);
+    const secs = avgDurationSecs % 60;
+    const avgViewDuration = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+    const rpm = views > 0 ? parseFloat(((revenue / views) * 1000).toFixed(2)) : 1595.74;
+    const cpm = parseFloat((rpm * 1.72).toFixed(2));
+    const ctr = 8.9;
+    const impressions = Math.round(views / (ctr / 100));
+
+    return {
+      date: p.date,
+      day: p.day,
+      views,
+      impressions,
+      ctr,
+      watchTimeHrs,
+      avgViewDurationSecs: avgDurationSecs,
+      avgViewDuration,
+      rpm,
+      cpm,
+      revenue,
+      subscribersGained: subsGained,
+      subscribersLost: subsLost,
+      subscribersNet: subsNet,
+      cumulativeSubscribers: cumulativeSubs,
+      likes: Math.round(views * 0.046),
+      comments: Math.round(views * 0.0034)
+    };
+  });
+
+  return result;
+}
+
 export const DAILY_SERIES = generateDailyTimeSeries(365, '2026-09-18');
 
 /**
@@ -531,7 +771,16 @@ export function aggregateMetrics(filteredDaily, _videoId = null) {
   const avgRpm = views > 0 ? parseFloat(((revenue / (views / 1000))).toFixed(2)) : 0;
   const avgCpm = parseFloat((avgRpm * 1.72).toFixed(2));
 
-  const formatCompact = (num) => {
+  const formatCompact = (num, isLakh = true) => {
+    if (isLakh) {
+      if (num >= 10_000_000) return (num / 10_000_000).toFixed(1) + 'Cr';
+      if (num >= 100_000) {
+        const l = num / 100_000;
+        return l >= 10 ? `${Math.round(l)}L` : `${l.toFixed(1)}L`;
+      }
+      if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+      return num.toLocaleString('en-IN');
+    }
     if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
     if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
     if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
@@ -540,18 +789,18 @@ export function aggregateMetrics(filteredDaily, _videoId = null) {
 
   return {
     views,
-    viewsFormatted: formatCompact(views),
+    viewsFormatted: formatCompact(views, true),
     watchTimeHrs: parseFloat(watchTimeHrs.toFixed(1)),
-    watchTimeHrsFormatted: `${formatCompact(Math.round(watchTimeHrs))}`,
+    watchTimeHrsFormatted: formatCompact(Math.round(watchTimeHrs), true),
     impressions,
-    impressionsFormatted: formatCompact(impressions),
+    impressionsFormatted: formatCompact(impressions, true),
     ctr: avgCtr,
     revenue: parseFloat(revenue.toFixed(2)),
     revenueFormatted: `₹${revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     subscribersGained,
     subscribersLost,
     subscribersNet,
-    subscribersNetFormatted: subscribersNet >= 0 ? `+${formatCompact(subscribersNet)}` : `-${formatCompact(Math.abs(subscribersNet))}`,
+    subscribersNetFormatted: subscribersNet >= 0 ? `+${(subscribersNet >= 1000 ? (subscribersNet / 1000).toFixed(1) + 'K' : subscribersNet)}` : `-${(Math.abs(subscribersNet) >= 1000 ? (Math.abs(subscribersNet) / 1000).toFixed(1) + 'K' : Math.abs(subscribersNet))}`,
     rpm: avgRpm,
     cpm: avgCpm,
     likes,
@@ -679,7 +928,7 @@ export function tickRealtimeData(currentRealtime) {
   const new60 = [...currentRealtime.last60Minutes];
   const now = new Date();
   const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-  
+
   // Natural fluctuation on latest minute
   const lastItem = new60[new60.length - 1];
   const delta = ((now.getSeconds() % 7) - 3);
