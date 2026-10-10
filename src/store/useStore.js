@@ -126,8 +126,8 @@ const BASELINE_REVENUE = PROCESSED_VIDEOS.reduce((acc, v) => acc + ((Number(v.vi
 const EMPTY_STATE = {
   channelInfo: {
     ...CHANNEL_BENCHMARKS,
-    subscribers: 53822,
-    subscribersFormatted: '53,822',
+    subscribers: 53873,
+    subscribersFormatted: '53,873',
     lifetimeViewsFormatted: '37L',
     totalUploads: PROCESSED_VIDEOS.length,
     hasExplicitChannelMetrics: true,
@@ -135,13 +135,13 @@ const EMPTY_STATE = {
     viewsLast28DaysFormatted: '37L',
     watchTimeLast28Days: 640000,
     watchTimeLast28DaysFormatted: '6.4L',
-    subscribersGainedLast28Days: 53822,
-    subscribersGainedLast28DaysFormatted: '+53.8K',
+    subscribersGainedLast28Days: 53873,
+    subscribersGainedLast28DaysFormatted: '+53.9K',
     revenueLast28Days: 5899062.78,
     revenueLast28DaysFormatted: '₹58,99,062.78',
     totalRevenueFormatted: '₹58,99,062.78',
-    realtimeSubscribers: 53822,
-    realtimeViews48h: 0,
+    realtimeSubscribers: 53873,
+    realtimeViews48h: 397,
     realtimeViews60m: 0,
     currency: 'INR'
   },
@@ -277,10 +277,10 @@ export const useStore = create(
       databaseError: null,
 
       // Date filtering state
-      simulationAnchorDate: '2026-10-02',
+      simulationAnchorDate: '2026-10-09',
       selectedDateRange: 'last28',
       customStartDate: '2026-09-05',
-      customEndDate: '2026-10-02',
+      customEndDate: '2026-10-09',
       realtimeDataset: INITIAL_REALTIME,
 
       ...EMPTY_STATE,
@@ -487,7 +487,7 @@ export const useStore = create(
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {
           startStr = '2023-02-11';
-          endStr = '2026-10-02';
+          endStr = '2026-10-09';
         } else if (activeKey === '2026') {
           startStr = '2026-01-01';
           endStr = todayStr;
@@ -534,8 +534,8 @@ export const useStore = create(
             revenueFormatted: '₹58,99,062.78',
             subscribersGained: 58128,
             subscribersLost: 4306,
-            subscribersNet: 53822,
-            subscribersNetFormatted: '+53.8K',
+            subscribersNet: 53873,
+            subscribersNetFormatted: '+53.9K',
             rpm: 1595.74,
             cpm: 2744.67,
             likes: 170050,
@@ -544,7 +544,7 @@ export const useStore = create(
         } else {
           agg = aggregateMetrics(filteredDaily, videoId);
         }
-        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 2 Oct 2026' : formatDateRangeText(startStr, endStr);
+        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 9 Oct 2026' : formatDateRangeText(startStr, endStr);
 
         // Per-video analytics: use the video's actual stored metrics directly
         if (videoId) {
@@ -1265,13 +1265,13 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v32',
+      name: 'yt-studio-analytics-v33',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.simulationAnchorDate = '2026-10-02';
+          state.simulationAnchorDate = '2026-10-09';
           state.customStartDate = '2026-09-05';
-          state.customEndDate = '2026-10-02';
+          state.customEndDate = '2026-10-09';
           if (state.channelInfo) {
             if (state.channelInfo.revenueLast28DaysFormatted) {
               state.channelInfo.revenueLast28DaysFormatted = formatINR(state.channelInfo.revenueLast28DaysFormatted);
