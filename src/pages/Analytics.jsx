@@ -290,7 +290,7 @@ const Analytics = () => {
       return ['0', '4', '8', '12', '16', '20', '24 hours'];
     }
     if (selectedDateRange === 'lifetime' && !isVideoMode) {
-      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-10-12'];
+      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-10-16'];
     }
     if (!dailyWithTypical || dailyWithTypical.length === 0) return undefined;
     const len = dailyWithTypical.length;
@@ -341,7 +341,7 @@ const Analytics = () => {
       if (dateStr === '2024-11-09') return '9 Nov 2024';
       if (dateStr === '2025-06-09') return '9 Jun 2025';
       if (dateStr === '2026-01-07') return '7 Jan 2026';
-      if (dateStr === '2026-10-12') return '12 Oct 2026';
+      if (dateStr === '2026-10-16') return '16 Oct 2026';
     }
     if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
 
@@ -517,7 +517,7 @@ const Analytics = () => {
   // Dynamic Realtime Calculations
   const realtime48hViews = isVideoMode
     ? (currentVideo.realtimeViews48h !== undefined ? Number(currentVideo.realtimeViews48h) : (currentVideo.views ? Math.round(Number(currentVideo.views) * 0.0055) : 0))
-    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 283);
+    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 264);
 
   const realtimeScaledBars = useMemo(() => {
     if (realtime48hViews <= 0) return [];

@@ -13,7 +13,7 @@
 export const CHANNEL_BENCHMARKS = {
   name: 'Jesus Is The Lord',
   handle: '@jesusisthelord',
-  subscribers: 53881,
+  subscribers: 53883,
   lifetimeViews: 3696747,
   lifetimeWatchTime: 640000,
   lifetimeRevenue: 5899062.78,
@@ -73,7 +73,7 @@ export const RAW_VIDEOS = [
     durationSecs: 1500,
     avgViewDuration: '12:51',
     avgViewDurationSecs: 771,
-    views: 97,
+    views: 91,
     ctr: 8.9,
     rpm: 427.2365,
     cpm: 58.65,
@@ -88,11 +88,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 3,
     subscribersNet: 3,
-    viewsFormatted: '97',
+    viewsFormatted: '91',
     subscribersNetFormatted: '+3',
     subscribersGainedFormatted: '+3',
     sortOrder: 1,
-    realtimeViews48h: 97,
+    realtimeViews48h: 91,
     realtimeViews60m: 0
   },
   {
@@ -103,7 +103,7 @@ export const RAW_VIDEOS = [
     durationSecs: 862,
     avgViewDuration: '3:45',
     avgViewDurationSecs: 225,
-    views: 68,
+    views: 63,
     ctr: 7.2,
     rpm: 33.80,
     cpm: 58.14,
@@ -118,11 +118,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 2,
     subscribersNet: 2,
-    viewsFormatted: '68',
+    viewsFormatted: '63',
     subscribersNetFormatted: '+2',
     subscribersGainedFormatted: '+2',
     sortOrder: 2,
-    realtimeViews48h: 68,
+    realtimeViews48h: 63,
     realtimeViews60m: 0
   },
   {
@@ -133,7 +133,7 @@ export const RAW_VIDEOS = [
     durationSecs: 734,
     avgViewDuration: '2:57',
     avgViewDurationSecs: 177,
-    views: 52,
+    views: 47,
     ctr: 6.4,
     rpm: 33.80,
     cpm: 58.14,
@@ -148,11 +148,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 2,
     subscribersNet: 2,
-    viewsFormatted: '52',
+    viewsFormatted: '47',
     subscribersNetFormatted: '+2',
     subscribersGainedFormatted: '+2',
     sortOrder: 3,
-    realtimeViews48h: 52,
+    realtimeViews48h: 47,
     realtimeViews60m: 0
   },
   {
@@ -507,7 +507,7 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
 }
 
 /**
- * Generate accurate Lifetime time series data (11 Feb 2023 – 12 Oct 2026, 1340 days)
+ * Generate accurate Lifetime time series data (11 Feb 2023 – 16 Oct 2026, 1344 days)
  * Exactly replicating the YouTube Studio Lifetime graph:
  * - Feb 2023 - May 2023: Heavy viral launch explosion (multi-peaks oscillating up to ~28K)
  * - Jun 2023 - Sep 2023: Second wave peaking at ~22K in Aug/Sep
@@ -515,21 +515,21 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
  * - Nov 2024: Steep algorithm viral spike peaking at ~20K
  * - Jan 2025 - Dec 2025: Stable baseline (~1.5K-4K)
  * - Jan 2026: Upload surge peaking at ~10.5K
- * - Feb 2026 - 12 Oct 2026: Decaying tail to ~200-400
+ * - Feb 2026 - 16 Oct 2026: Decaying tail to ~200-400
  * - Exactly sums to:
  *   - Views: 3,696,747 (37L)
  *   - Watch Time: 640,000 hrs (6.4L)
- *   - Subscribers: 53,881 (+53.9K)
+ *   - Subscribers: 53,883 (+53.9K)
  *   - Revenue: ₹58,99,062.78
  */
 export function generateLifetimeTimeSeries() {
   const startDate = new Date('2023-02-11T00:00:00Z');
-  const endDate = new Date('2026-10-12T00:00:00Z');
-  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1340 days
+  const endDate = new Date('2026-10-16T00:00:00Z');
+  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1344 days
 
   const TARGET_VIEWS = 3696747;
   const TARGET_WATCH_HOURS = 640000;
-  const TARGET_SUBS = 53881;
+  const TARGET_SUBS = 53883;
   const TARGET_REVENUE = 5899062.78;
 
   const rawPoints = [];
@@ -637,7 +637,7 @@ export function generateLifetimeTimeSeries() {
       const baseline = 400 + peakJan;
       baseViews = Math.max(200, baseline * (0.90 + r2 * 0.20));
     } else {
-      // Phase 7: Feb 16, 2026 – Oct 9, 2026 (Flat quiet line along baseline ~80-250 views/day)
+      // Phase 7: Feb 16, 2026 – Oct 16, 2026 (Flat quiet line along baseline ~80-250 views/day)
       const subT = t - 1105;
       const tail = Math.exp(-subT * 0.03) * 600;
       const baseline = 120 + tail;
