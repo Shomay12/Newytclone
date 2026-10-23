@@ -126,8 +126,8 @@ const BASELINE_REVENUE = PROCESSED_VIDEOS.reduce((acc, v) => acc + ((Number(v.vi
 const EMPTY_STATE = {
   channelInfo: {
     ...CHANNEL_BENCHMARKS,
-    subscribers: 53883,
-    subscribersFormatted: '53,883',
+    subscribers: 53886,
+    subscribersFormatted: '53,886',
     lifetimeViewsFormatted: '37L',
     totalUploads: PROCESSED_VIDEOS.length,
     hasExplicitChannelMetrics: true,
@@ -140,8 +140,8 @@ const EMPTY_STATE = {
     revenueLast28Days: 5899062.78,
     revenueLast28DaysFormatted: '₹58,99,062.78',
     totalRevenueFormatted: '₹58,99,062.78',
-    realtimeSubscribers: 53883,
-    realtimeViews48h: 264,
+    realtimeSubscribers: 53886,
+    realtimeViews48h: 223,
     realtimeViews60m: 0,
     currency: 'INR'
   },
@@ -277,10 +277,10 @@ export const useStore = create(
       databaseError: null,
 
       // Date filtering state
-      simulationAnchorDate: '2026-10-16',
+      simulationAnchorDate: '2026-10-23',
       selectedDateRange: 'last28',
       customStartDate: '2026-09-05',
-      customEndDate: '2026-10-16',
+      customEndDate: '2026-10-23',
       realtimeDataset: INITIAL_REALTIME,
 
       ...EMPTY_STATE,
@@ -487,7 +487,7 @@ export const useStore = create(
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {
           startStr = '2023-02-11';
-          endStr = '2026-10-16';
+          endStr = '2026-10-23';
         } else if (activeKey === '2026') {
           startStr = '2026-01-01';
           endStr = todayStr;
@@ -534,7 +534,7 @@ export const useStore = create(
             revenueFormatted: '₹58,99,062.78',
             subscribersGained: 58128,
             subscribersLost: 4306,
-            subscribersNet: 53883,
+            subscribersNet: 53886,
             subscribersNetFormatted: '+53.9K',
             rpm: 1595.74,
             cpm: 2744.67,
@@ -544,7 +544,7 @@ export const useStore = create(
         } else {
           agg = aggregateMetrics(filteredDaily, videoId);
         }
-        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 16 Oct 2026' : formatDateRangeText(startStr, endStr);
+        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 23 Oct 2026' : formatDateRangeText(startStr, endStr);
 
         // Per-video analytics: use the video's actual stored metrics directly
         if (videoId) {
@@ -1265,13 +1265,13 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v35',
+      name: 'yt-studio-analytics-v37',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.simulationAnchorDate = '2026-10-16';
+          state.simulationAnchorDate = '2026-10-23';
           state.customStartDate = '2026-09-05';
-          state.customEndDate = '2026-10-16';
+          state.customEndDate = '2026-10-23';
           if (state.channelInfo) {
             if (state.channelInfo.revenueLast28DaysFormatted) {
               state.channelInfo.revenueLast28DaysFormatted = formatINR(state.channelInfo.revenueLast28DaysFormatted);

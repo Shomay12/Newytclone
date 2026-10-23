@@ -179,27 +179,27 @@ INSERT INTO crm_videos (
 ) VALUES
 (
     'VID001', 'UCqpdVWIzEQUcbf4pAxlneOQ',
-    'This Man Truly Loves You But Why Is There Still Another Woman in His Life?',
-    'This Man Truly Loves You But Why Is There Still Another Woman in His Life?',
-    '/thumbnails/latest_video.png', '25:00', 1500,
+    '6 Signs your Soulmate Is About To Enter Your Life',
+    '6 Signs your Soulmate Is About To Enter Your Life',
+    '/thumbnails/soulmate_enter_life.png', '25:00', 1500,
     '12:51', 771, 240496, '240.5K', 32453, 354,
     427.38, 58.65, 8.90, 102748.67, '₹1,02,748.67', 4279, 0, 4279,
     51480.00, 17337079, 'Public', true, 'None', 'Entertainment', '2026-07-21', 1
 ),
 (
     'VID002', 'UCqpdVWIzEQUcbf4pAxlneOQ',
-    'Long AI Video Kaise Banaye (14 Min Video) | AI Video Kaise Banaye | AI Video Maker',
-    'Full 14 minute long AI video creation masterclass.',
-    '/thumbnails/2.webp', '14:22', 862,
+    'Why You Can''t Stop Thinking About One Particular Person',
+    'Why You Can''t Stop Thinking About One Particular Person',
+    '/thumbnails/stop_thinking_person.png', '14:22', 862,
     '3:45', 225, 892000, '892K', 41032, 3033,
     33.80, 58.14, 7.20, 30149.60, '₹30,149.60', 12488, 1499, 10989,
     55750.00, 12388889, 'Public', true, 'None', 'Entertainment', '2026-07-16', 2
 ),
 (
     'VID003', 'UCqpdVWIzEQUcbf4pAxlneOQ',
-    'Create Kids Cartoon Nursery Rhymes with AI | AI Video Kaise Banaye | AI Video Maker',
-    'Nursery rhymes cartoon video creation using AI tools.',
-    '/thumbnails/3.webp', '12:14', 734,
+    'Your Soulmate Is Closer Than You Think -Here Are The Signs ',
+    'Your Soulmate Is Closer Than You Think -Here Are The Signs ',
+    '/thumbnails/soulmate_closer.png', '12:14', 734,
     '2:57', 177, 650000, '650K', 29900, 2210,
     33.80, 58.14, 6.40, 21970.00, '₹21,970.00', 9100, 1092, 8008,
     31958.30, 10156250, 'Public', true, 'None', 'Entertainment', '2026-07-11', 3
