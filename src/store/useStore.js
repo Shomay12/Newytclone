@@ -141,7 +141,7 @@ const EMPTY_STATE = {
     revenueLast28DaysFormatted: '₹58,99,062.78',
     totalRevenueFormatted: '₹58,99,062.78',
     realtimeSubscribers: 53886,
-    realtimeViews48h: 223,
+    realtimeViews48h: 198,
     realtimeViews60m: 0,
     currency: 'INR'
   },
@@ -1265,7 +1265,7 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v37',
+      name: 'yt-studio-analytics-v38',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {

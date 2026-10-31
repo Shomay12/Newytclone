@@ -517,7 +517,7 @@ const Analytics = () => {
   // Dynamic Realtime Calculations
   const realtime48hViews = isVideoMode
     ? (currentVideo.realtimeViews48h !== undefined ? Number(currentVideo.realtimeViews48h) : (currentVideo.views ? Math.round(Number(currentVideo.views) * 0.0055) : 0))
-    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 223);
+    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 198);
 
   const realtimeScaledBars = useMemo(() => {
     if (realtime48hViews <= 0) return [];
