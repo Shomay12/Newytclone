@@ -277,10 +277,10 @@ export const useStore = create(
       databaseError: null,
 
       // Date filtering state
-      simulationAnchorDate: '2026-10-23',
+      simulationAnchorDate: '2026-10-31',
       selectedDateRange: 'last28',
-      customStartDate: '2026-09-05',
-      customEndDate: '2026-10-23',
+      customStartDate: '2026-10-04',
+      customEndDate: '2026-10-31',
       realtimeDataset: INITIAL_REALTIME,
 
       ...EMPTY_STATE,
@@ -307,15 +307,12 @@ export const useStore = create(
               if (videos && videos.length > 0) {
                 updates.videos = videos;
               }
-              if (stateData) {
-                if (stateData.channelInfo) updates.channelInfo = { ...curState.channelInfo, ...updates.channelInfo, ...stateData.channelInfo };
-                if (stateData.videos && stateData.videos.length > 0) updates.videos = stateData.videos;
-                if (stateData.graphSettings) updates.graphSettings = stateData.graphSettings;
-                if (stateData.simulationAnchorDate) updates.simulationAnchorDate = stateData.simulationAnchorDate;
-                if (stateData.selectedDateRange) updates.selectedDateRange = stateData.selectedDateRange;
-                if (stateData.customStartDate) updates.customStartDate = stateData.customStartDate;
-                if (stateData.customEndDate) updates.customEndDate = stateData.customEndDate;
-              }
+              const dataObj = stateData || body.data;
+              if (dataObj.graphSettings) updates.graphSettings = dataObj.graphSettings;
+              if (dataObj.simulationAnchorDate) updates.simulationAnchorDate = dataObj.simulationAnchorDate;
+              if (dataObj.selectedDateRange) updates.selectedDateRange = dataObj.selectedDateRange;
+              if (dataObj.customStartDate) updates.customStartDate = dataObj.customStartDate;
+              if (dataObj.customEndDate) updates.customEndDate = dataObj.customEndDate;
               set({
                 ...updates,
                 hasCrmOverrides: true,
@@ -380,7 +377,7 @@ export const useStore = create(
       // Set simulation anchor date (e.g. '2026-08-28') and update date ranges
       setSimulationAnchorDate: (anchorDate, customStart = null, customEnd = null) => {
         set(state => {
-          const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-08-28';
+          const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-10-31';
           let startStr = customStart;
           if (!startStr) {
             const d = new Date(`${cleanAnchor}T00:00:00Z`);
@@ -449,7 +446,7 @@ export const useStore = create(
       getAnalyticsForRange: (rangeKey = null, videoId = null) => {
         const state = get();
         const activeKey = rangeKey || state.selectedDateRange;
-        const anchorDateStr = state.simulationAnchorDate || '2026-08-28';
+        const anchorDateStr = state.simulationAnchorDate || '2026-10-31';
         const today = new Date(anchorDateStr.includes('T') ? anchorDateStr : `${anchorDateStr}T00:00:00Z`);
 
         const formatDate = (d) => d.toISOString().split('T')[0];
@@ -1265,13 +1262,14 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v38',
+      name: 'yt-studio-analytics-v39',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.simulationAnchorDate = '2026-10-23';
-          state.customStartDate = '2026-09-05';
-          state.customEndDate = '2026-10-23';
+          state.simulationAnchorDate = '2026-10-31';
+          state.selectedDateRange = 'last28';
+          state.customStartDate = '2026-10-04';
+          state.customEndDate = '2026-10-31';
           if (state.channelInfo) {
             if (state.channelInfo.revenueLast28DaysFormatted) {
               state.channelInfo.revenueLast28DaysFormatted = formatINR(state.channelInfo.revenueLast28DaysFormatted);

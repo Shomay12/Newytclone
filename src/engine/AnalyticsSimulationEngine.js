@@ -716,7 +716,7 @@ export function generateLifetimeTimeSeries() {
   return result;
 }
 
-export const DAILY_SERIES = generateDailyTimeSeries(365, '2026-09-18');
+export const DAILY_SERIES = generateDailyTimeSeries(365, '2026-10-31');
 
 /**
  * Filter daily metrics based on date range boundaries
