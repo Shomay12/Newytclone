@@ -403,9 +403,9 @@
     "algorithmFrequency": 1,
     "spikinessPreset": "spiky"
   },
-  "selectedDateRange": "last28",
+  "selectedDateRange": "lifetime",
   "simulationAnchorDate": "2026-10-31",
   "customStartDate": "2026-10-04",
   "customEndDate": "2026-10-31",
-  "savedAt": "2026-10-31T20:30:00.000Z"
+  "savedAt": "2026-11-01T04:43:07.716Z"
 }
