@@ -484,7 +484,7 @@ export const useStore = create(
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {
           startStr = '2023-02-11';
-          endStr = '2026-10-23';
+          endStr = '2026-10-31';
         } else if (activeKey === '2026') {
           startStr = '2026-01-01';
           endStr = todayStr;
@@ -541,7 +541,7 @@ export const useStore = create(
         } else {
           agg = aggregateMetrics(filteredDaily, videoId);
         }
-        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 23 Oct 2026' : formatDateRangeText(startStr, endStr);
+        const formattedDateRange = (activeKey === 'lifetime' || activeKey === 'since_published') && !videoId ? '11 Feb 2023 – 31 Oct 2026' : formatDateRangeText(startStr, endStr);
 
         // Per-video analytics: use the video's actual stored metrics directly
         if (videoId) {
@@ -1262,7 +1262,7 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v39',
+      name: 'yt-studio-analytics-v40',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {

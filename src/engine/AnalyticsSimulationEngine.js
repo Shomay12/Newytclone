@@ -508,7 +508,7 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
 }
 
 /**
- * Generate accurate Lifetime time series data (11 Feb 2023 – 23 Oct 2026, 1351 days)
+ * Generate accurate Lifetime time series data (11 Feb 2023 – 31 Oct 2026, 1359 days)
  * Exactly replicating the YouTube Studio Lifetime graph:
  * - Feb 2023 - May 2023: Heavy viral launch explosion (multi-peaks oscillating up to ~28K)
  * - Jun 2023 - Sep 2023: Second wave peaking at ~22K in Aug/Sep
@@ -516,7 +516,7 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
  * - Nov 2024: Steep algorithm viral spike peaking at ~20K
  * - Jan 2025 - Dec 2025: Stable baseline (~1.5K-4K)
  * - Jan 2026: Upload surge peaking at ~10.5K
- * - Feb 2026 - 23 Oct 2026: Decaying tail to ~200-400
+ * - Feb 2026 - 31 Oct 2026: Decaying tail to ~200-400
  * - Exactly sums to:
  *   - Views: 3,696,747 (37L)
  *   - Watch Time: 640,000 hrs (6.4L)
@@ -525,8 +525,8 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
  */
 export function generateLifetimeTimeSeries() {
   const startDate = new Date('2023-02-11T00:00:00Z');
-  const endDate = new Date('2026-10-23T00:00:00Z');
-  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1351 days
+  const endDate = new Date('2026-10-31T00:00:00Z');
+  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1359 days
 
   const TARGET_VIEWS = 3696747;
   const TARGET_WATCH_HOURS = 640000;

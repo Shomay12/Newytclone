@@ -290,7 +290,7 @@ const Analytics = () => {
       return ['0', '4', '8', '12', '16', '20', '24 hours'];
     }
     if (selectedDateRange === 'lifetime' && !isVideoMode) {
-      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-10-23'];
+      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-10-31'];
     }
     if (!dailyWithTypical || dailyWithTypical.length === 0) return undefined;
     const len = dailyWithTypical.length;
@@ -341,7 +341,7 @@ const Analytics = () => {
       if (dateStr === '2024-11-09') return '9 Nov 2024';
       if (dateStr === '2025-06-09') return '9 Jun 2025';
       if (dateStr === '2026-01-07') return '7 Jan 2026';
-      if (dateStr === '2026-10-23') return '23 Oct 2026';
+      if (dateStr === '2026-10-31') return '31 Oct 2026';
     }
     if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
 
