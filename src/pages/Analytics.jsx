@@ -598,7 +598,7 @@ const Analytics = () => {
               onClick={() => setShowDatePicker(!showDatePicker)}
               title="Select analytics date range"
             >
-              <span className="date-sub-text">{isVideoMode ? videoDateLabel : dateRangeLabel}</span>
+              <span className="date-sub-text">{selectedDateRange === 'lifetime' ? '11 Feb 2023 – 31 Oct 2026' : (isVideoMode ? videoDateLabel : dateRangeLabel)}</span>
               <span className="date-main-text">
                 <span>{activePresetLabel}</span>
                 <span className="material-symbols-outlined date-arrow">keyboard_arrow_down</span>

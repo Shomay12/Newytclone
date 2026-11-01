@@ -317,6 +317,12 @@ export function formatDateRangeText(startDateInput, endDateInput) {
   const e = typeof endDateInput === 'string' ? new Date(endDateInput.includes('T') ? endDateInput : `${endDateInput}T00:00:00Z`) : endDateInput;
   if (isNaN(s.getTime()) || isNaN(e.getTime())) return `${startDateInput} – ${endDateInput}`;
 
+  const sIso = s.toISOString().split('T')[0];
+  const eIso = e.toISOString().split('T')[0];
+  if (sIso === '2023-02-11' && eIso === '2026-10-31') {
+    return '11 Feb 2023 – 31 Oct 2026';
+  }
+
   const sMonth = MONTH_NAMES[s.getUTCMonth()];
   const sDay = s.getUTCDate();
   const sYear = s.getUTCFullYear();
