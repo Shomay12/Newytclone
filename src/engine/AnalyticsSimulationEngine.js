@@ -13,7 +13,7 @@
 export const CHANNEL_BENCHMARKS = {
   name: 'Jesus Is The Lord',
   handle: '@jesusisthelord',
-  subscribers: 53886,
+  subscribers: 53887,
   lifetimeViews: 3696747,
   lifetimeWatchTime: 640000,
   lifetimeRevenue: 5899062.78,
@@ -74,7 +74,7 @@ export const RAW_VIDEOS = [
     durationSecs: 1500,
     avgViewDuration: '12:51',
     avgViewDurationSecs: 771,
-    views: 71,
+    views: 68,
     ctr: 8.9,
     rpm: 427.2365,
     cpm: 58.65,
@@ -89,11 +89,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 3,
     subscribersNet: 3,
-    viewsFormatted: '71',
+    viewsFormatted: '68',
     subscribersNetFormatted: '+3',
     subscribersGainedFormatted: '+3',
     sortOrder: 1,
-    realtimeViews48h: 71,
+    realtimeViews48h: 68,
     realtimeViews60m: 0
   },
   {
@@ -104,7 +104,7 @@ export const RAW_VIDEOS = [
     durationSecs: 862,
     avgViewDuration: '3:45',
     avgViewDurationSecs: 225,
-    views: 48,
+    views: 47,
     ctr: 7.2,
     rpm: 33.80,
     cpm: 58.14,
@@ -119,11 +119,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 2,
     subscribersNet: 2,
-    viewsFormatted: '48',
+    viewsFormatted: '47',
     subscribersNetFormatted: '+2',
     subscribersGainedFormatted: '+2',
     sortOrder: 2,
-    realtimeViews48h: 48,
+    realtimeViews48h: 47,
     realtimeViews60m: 0
   },
   {
@@ -134,7 +134,7 @@ export const RAW_VIDEOS = [
     durationSecs: 734,
     avgViewDuration: '2:57',
     avgViewDurationSecs: 177,
-    views: 23,
+    views: 19,
     ctr: 6.4,
     rpm: 33.80,
     cpm: 58.14,
@@ -149,11 +149,11 @@ export const RAW_VIDEOS = [
     subscribersLost: 0,
     netSubscribers: 2,
     subscribersNet: 2,
-    viewsFormatted: '23',
+    viewsFormatted: '19',
     subscribersNetFormatted: '+2',
     subscribersGainedFormatted: '+2',
     sortOrder: 3,
-    realtimeViews48h: 23,
+    realtimeViews48h: 19,
     realtimeViews60m: 0
   },
   {
@@ -319,8 +319,11 @@ export function formatDateRangeText(startDateInput, endDateInput) {
 
   const sIso = s.toISOString().split('T')[0];
   const eIso = e.toISOString().split('T')[0];
-  if (sIso === '2023-02-11' && (eIso === '2026-11-03' || eIso === '2026-10-31')) {
-    return `11 Feb 2023 – ${eIso === '2026-11-03' ? '3 Nov' : '31 Oct'} 2026`;
+  if (sIso === '2023-02-11' && (eIso === '2026-11-13' || eIso === '2026-11-03' || eIso === '2026-10-31')) {
+    return `11 Feb 2023 – ${eIso === '2026-11-13' ? '13 Nov' : (eIso === '2026-11-03' ? '3 Nov' : '31 Oct')} 2026`;
+  }
+  if (sIso === '2026-10-17' && eIso === '2026-11-13') {
+    return '17 Oct – 13 Nov 2026';
   }
   if (sIso === '2026-10-07' && eIso === '2026-11-03') {
     return '7 Oct – 3 Nov 2026';
@@ -517,7 +520,7 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
 }
 
 /**
- * Generate accurate Lifetime time series data (11 Feb 2023 – 3 Nov 2026, 1362 days)
+ * Generate accurate Lifetime time series data (11 Feb 2023 – 13 Nov 2026, 1372 days)
  * Exactly replicating the YouTube Studio Lifetime graph:
  * - Feb 2023 - May 2023: Heavy viral launch explosion (multi-peaks oscillating up to ~28K)
  * - Jun 2023 - Sep 2023: Second wave peaking at ~22K in Aug/Sep
@@ -525,21 +528,21 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
  * - Nov 2024: Steep algorithm viral spike peaking at ~20K
  * - Jan 2025 - Dec 2025: Stable baseline (~1.5K-4K)
  * - Jan 2026: Upload surge peaking at ~10.5K
- * - Feb 2026 - 3 Nov 2026: Decaying tail to ~200-400
+ * - Feb 2026 - 13 Nov 2026: Decaying tail to ~200-400
  * - Exactly sums to:
  *   - Views: 3,696,747 (37L)
  *   - Watch Time: 640,000 hrs (6.4L)
- *   - Subscribers: 53,886 (+53.9K)
+ *   - Subscribers: 53,887 (+53.9K)
  *   - Revenue: ₹58,99,062.78
  */
 export function generateLifetimeTimeSeries() {
   const startDate = new Date('2023-02-11T00:00:00Z');
-  const endDate = new Date('2026-11-03T00:00:00Z');
-  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1362 days
+  const endDate = new Date('2026-11-13T00:00:00Z');
+  const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1; // 1372 days
 
   const TARGET_VIEWS = 3696747;
   const TARGET_WATCH_HOURS = 640000;
-  const TARGET_SUBS = 53886;
+  const TARGET_SUBS = 53887;
   const TARGET_REVENUE = 5899062.78;
 
   const rawPoints = [];
@@ -725,7 +728,7 @@ export function generateLifetimeTimeSeries() {
   return result;
 }
 
-export const DAILY_SERIES = generateDailyTimeSeries(365, '2026-11-03');
+export const DAILY_SERIES = generateDailyTimeSeries(365, '2026-11-13');
 
 /**
  * Filter daily metrics based on date range boundaries
