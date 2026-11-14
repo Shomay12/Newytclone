@@ -373,7 +373,7 @@ export default function CRM() {
     anchorDate: simulationAnchorDate || '2026-11-13',
     startDate: customStartDate || '2026-10-17',
     endDate: customEndDate || '2026-11-13',
-    preset: selectedDateRange || 'last28'
+    preset: selectedDateRange || 'lifetime'
   });
 
   // Graph Controls State (Channel & Per-Video with 7-Node Curve Sculptor)
@@ -437,7 +437,7 @@ export default function CRM() {
       anchorDate: simulationAnchorDate || '2026-11-13',
       startDate: customStartDate || '2026-10-17',
       endDate: customEndDate || '2026-11-13',
-      preset: selectedDateRange || 'last28'
+      preset: selectedDateRange || 'lifetime'
     });
   }, [simulationAnchorDate, customStartDate, customEndDate, selectedDateRange]);
 

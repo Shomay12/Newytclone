@@ -502,7 +502,7 @@ const Analytics = () => {
       return 'Since published';
     }
     const found = ALL_DATE_PRESETS.find(p => p.key === selectedDateRange);
-    return found ? found.label : (isVideoMode ? 'Since published' : 'Last 28 days');
+    return found ? found.label : (isVideoMode ? 'Since published' : 'Lifetime');
   }, [isVideoMode, selectedDateRange, ALL_DATE_PRESETS]);
 
   const videoDateLabel = useMemo(() => {

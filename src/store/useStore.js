@@ -278,7 +278,7 @@ export const useStore = create(
 
       // Date filtering state
       simulationAnchorDate: '2026-11-13',
-      selectedDateRange: 'last28',
+      selectedDateRange: 'lifetime',
       customStartDate: '2026-10-17',
       customEndDate: '2026-11-13',
       realtimeDataset: INITIAL_REALTIME,
@@ -1262,12 +1262,12 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v42',
+      name: 'yt-studio-analytics-v43',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.simulationAnchorDate = '2026-11-13';
-          state.selectedDateRange = 'last28';
+          state.selectedDateRange = 'lifetime';
           state.customStartDate = '2026-10-17';
           state.customEndDate = '2026-11-13';
           if (state.channelInfo) {
