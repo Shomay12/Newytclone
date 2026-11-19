@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import UploadModal from './UploadModal';
+import AskStudioDrawer, { openAskStudio } from './AskStudioDrawer';
+import { AskSparkleIcon } from './StudioIcons';
 import './TopNav.css';
 
 const TopNav = ({ onToggleSidebar }) => {
@@ -37,7 +39,9 @@ const TopNav = ({ onToggleSidebar }) => {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
 
@@ -56,48 +60,91 @@ const TopNav = ({ onToggleSidebar }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isMobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [isMobileSearchOpen]);
+
   const handleSelectSearchResult = (path) => {
     setShowSearchResults(false);
+    setIsMobileSearchOpen(false);
     setSearchQuery('');
     navigate(path);
   };
 
   return (
     <>
-      <header className="top-nav">
-        <div className="left-section">
-          <button className="menu-btn" onClick={onToggleSidebar} title="Collapse sidebar">
-            <span className="material-symbols-outlined">menu</span>
-          </button>
-          <div className="logo-container" onClick={() => navigate('/channel/UCqpdVWIzEQUcbf4pAxlneOQ/dashboard')}>
-            <img 
-              src="https://www.gstatic.com/youtube/img/creator/yt_studio_logo.svg" 
-              alt="YouTube Studio" 
-              className="studio-logo"
-            />
-          </div>
-        </div>
-
-        {/* Center Search Bar */}
-        <div className="center-section" ref={searchRef}>
-          <div className="search-box">
-            <span className="material-symbols-outlined search-icon">search</span>
-            <input 
-              type="text" 
-              placeholder="Search across your channel" 
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowSearchResults(true);
+      <header className={`top-nav ${isMobileSearchOpen ? 'mobile-search-active' : ''}`}>
+        {isMobileSearchOpen ? (
+          <div className="mobile-search-header" ref={searchRef}>
+            <button 
+              className="menu-btn mobile-search-back-btn" 
+              onClick={() => {
+                setIsMobileSearchOpen(false);
+                setShowSearchResults(false);
               }}
-              onFocus={() => setShowSearchResults(true)}
-            />
-            {searchQuery && (
-              <button className="clear-search-btn" onClick={() => setSearchQuery('')}>
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            )}
+              aria-label="Back"
+            >
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+            <div className="search-box mobile-search-box">
+              <input 
+                ref={mobileSearchInputRef}
+                type="text" 
+                placeholder="Search across channel..." 
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => setShowSearchResults(true)}
+              />
+              {searchQuery && (
+                <button className="clear-search-btn" onClick={() => setSearchQuery('')}>
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              )}
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="left-section">
+              <button className="menu-btn" onClick={onToggleSidebar} title="Open menu" aria-label="Open menu">
+                <span className="material-symbols-outlined">menu</span>
+              </button>
+              <div className="logo-container" onClick={() => navigate('/channel/UCqpdVWIzEQUcbf4pAxlneOQ/dashboard')}>
+                <img 
+                  src="https://www.gstatic.com/youtube/img/creator/yt_studio_logo.svg" 
+                  alt="YouTube Studio" 
+                  className="studio-logo"
+                />
+              </div>
+            </div>
+
+            {/* Desktop Center Search Bar */}
+            <div className="center-section desktop-search-section" ref={searchRef}>
+              <div className="search-box">
+                <span className="material-symbols-outlined search-icon">search</span>
+                <input 
+                  type="text" 
+                  placeholder="Search across your channel" 
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSearchResults(true);
+                  }}
+                  onFocus={() => setShowSearchResults(true)}
+                />
+                {searchQuery && (
+                  <button className="clear-search-btn" onClick={() => setSearchQuery('')}>
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
           {/* Search Dropdown Panel */}
           {showSearchResults && searchQuery.trim() && (
@@ -152,15 +199,26 @@ const TopNav = ({ onToggleSidebar }) => {
               )}
             </div>
           )}
-        </div>
 
         {/* Right Nav Actions */}
         <div className="right-section">
+          {/* Mobile Search Trigger Button */}
+          {!isMobileSearchOpen && (
+            <button 
+              className="icon-action-btn mobile-search-trigger-btn"
+              onClick={() => setIsMobileSearchOpen(true)}
+              title="Search"
+              aria-label="Search"
+            >
+              <span className="material-symbols-outlined">search</span>
+            </button>
+          )}
+
           {/* Mode Switcher & OAuth Sync Buttons */}
           <div className="yt-auth-controls">
             {mode === 'connected' ? (
               <>
-                <span className="mode-tag connected">Connected Mode</span>
+                <span className="mode-tag connected desktop-only">Connected</span>
                 <button 
                   className="yt-sync-btn" 
                   onClick={() => syncWithYouTube(true)} 
@@ -168,15 +226,25 @@ const TopNav = ({ onToggleSidebar }) => {
                   title="Sync with YouTube"
                 >
                   <span className={`material-symbols-outlined ${isSyncing ? 'spinning' : ''}`}>sync</span>
-                  <span>{isSyncing ? 'Syncing...' : 'Sync with YouTube'}</span>
+                  <span className="sync-btn-text">{isSyncing ? 'Syncing...' : 'Sync'}</span>
                 </button>
               </>
             ) : null}
           </div>
 
+          {/* Feedback Button */}
+          <button
+            className="icon-action-btn desktop-only"
+            onClick={() => showToast('Send feedback dialog opened', 'info')}
+            title="Send feedback"
+            aria-label="Send feedback"
+          >
+            <span className="material-symbols-outlined">sms_failed</span>
+          </button>
+
           {/* Help Button -> Studio CRM Control Panel */}
           <button 
-            className="icon-action-btn" 
+            className="icon-action-btn help-action-btn desktop-only" 
             onClick={() => navigate('/crm')} 
             title="Studio CRM Control Panel"
           >
@@ -223,11 +291,22 @@ const TopNav = ({ onToggleSidebar }) => {
             )}
           </div>
 
+          {/* Ask Studio Pill Button */}
+          <button
+            type="button"
+            className="studio-pill-action-btn ask-studio-top-btn desktop-only"
+            onClick={() => openAskStudio('')}
+            title="Ask Studio"
+          >
+            <AskSparkleIcon size={16} />
+            <span>Ask Studio</span>
+          </button>
+
           {/* Create Button Dropdown */}
           <div className="dropdown-wrapper">
-            <button className="create-btn" onClick={() => setShowCreateDropdown(!showCreateDropdown)}>
+            <button className="studio-pill-action-btn create-btn" onClick={() => setShowCreateDropdown(!showCreateDropdown)}>
               <span className="material-symbols-outlined">video_call</span>
-              <span>CREATE</span>
+              <span>Create</span>
             </button>
 
             {showCreateDropdown && (
@@ -250,29 +329,20 @@ const TopNav = ({ onToggleSidebar }) => {
 
           {/* Profile Dropdown */}
           <div className="dropdown-wrapper">
-            <div
-              className="top-nav-user-pill"
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              title="Account"
-            >
-              <img 
-                src={channelInfo.avatar || '/channel-avatar.png'} 
-                alt="Profile" 
-                className="profile-pic"
-              />
-              <div className="top-nav-user-info">
-                <span className="top-nav-user-name">{channelInfo.name || 'Jesus Is The Lord'}</span>
-                <span className="top-nav-user-role">You're a manager</span>
-              </div>
-            </div>
+            <img 
+              src={channelInfo.avatar || '/channel-avatar.png'} 
+              alt="Profile" 
+              className="profile-pic"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)} 
+            />
 
             {showProfileDropdown && (
               <div className="profile-dropdown-menu">
                 <div className="profile-menu-header">
-                  <img src={channelInfo.avatar} alt="Avatar" className="menu-avatar" />
+                  <img src={channelInfo.avatar || '/channel-avatar.png'} alt="Avatar" className="menu-avatar" />
                   <div>
-                    <p className="menu-channel-name">{channelInfo.name}</p>
-                    <p className="menu-channel-handle">{channelInfo.handle}</p>
+                    <p className="menu-channel-name">{channelInfo.name || 'Jesus Is The Lord'}</p>
+                    <p className="menu-channel-handle">{channelInfo.handle || '@jesusisthelord'}</p>
                   </div>
                 </div>
                 <div className="menu-divider"></div>
@@ -337,6 +407,7 @@ const TopNav = ({ onToggleSidebar }) => {
       )}
 
       {isUploadModalOpen && <UploadModal onClose={() => setUploadModalOpen(false)} />}
+      <AskStudioDrawer />
     </>
   );
 };

@@ -1,485 +1,676 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useStore, formatINR, fmtV, fmtW, fmtS } from '../store/useStore';
-import { StudioCheckBadge, StudioUpBadge, StudioDownBadge } from '../components/StudioBadges';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useStore, fmtV, fmtW, fmtS, formatINR } from '../store/useStore';
+import { StudioUpBadge } from '../components/StudioBadges';
+import { AskSparkleIcon } from '../components/StudioIcons';
+import { openAskStudio } from '../components/AskStudioDrawer';
+import UploadModal from '../components/UploadModal';
+import {
+  formatHoursValue,
+  formatPctValue,
+  formatPublishDate,
+} from './analytics/analyticsFormatters';
 import './Dashboard.css';
 
-const Dashboard = () => {
+const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
+
+const IDEAS_SLIDES = [
+  {
+    id: 'idea-1',
+    title: 'Grow your audience and reach',
+    body: 'Identify which topics keep returning viewers watching longer on your channel.',
+    actionLabel: 'Get started',
+    actionType: 'research',
+  },
+  {
+    id: 'idea-2',
+    title: 'Test thumbnails and titles together',
+    body: 'Compare thumbnail variations in Video details to lift Browse click-through rate.',
+    actionLabel: 'Open insights',
+    actionType: 'ask',
+  },
+];
+
+const NEWS_SLIDES = [
+  {
+    id: 'news-1',
+    title: 'Updated insights & content tools',
+    body: 'Explore streamlined Content, Audience, Revenue, and Research hubs directly from your channel navigation with Ask Studio insights built in.',
+    actionLabel: 'Learn more',
+    path: `${CHANNEL_PREFIX}/analytics/hub_overview`,
+  },
+  {
+    id: 'news-2',
+    title: 'Title & retention pattern breakdown',
+    body: 'Use Ask Studio anywhere across Dashboard and Insights to summarize your latest uploads and viewer loyalty.',
+    actionLabel: 'Learn more',
+    path: 'ask',
+  },
+];
+
+function CoinsIllustration() {
+  return (
+    <svg width="72" height="72" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <ellipse cx="46" cy="58" rx="18" ry="7" fill="#FBC02D" stroke="#0f0f0f" strokeWidth="1.8" />
+      <path d="M28 50v8c0 3.87 8.06 7 18 7s18-3.13 18-7v-8" fill="#FBC02D" stroke="#0f0f0f" strokeWidth="1.8" />
+      <ellipse cx="46" cy="50" rx="18" ry="7" fill="#FDD835" stroke="#0f0f0f" strokeWidth="1.8" />
+      <ellipse cx="38" cy="40" rx="18" ry="7" fill="#FDD835" stroke="#0f0f0f" strokeWidth="1.8" />
+      <ellipse cx="46" cy="28" rx="16" ry="6.5" fill="#FFEE58" stroke="#0f0f0f" strokeWidth="1.8" />
+      <circle cx="24" cy="24" r="2.2" fill="#0f0f0f" />
+      <path d="M62 18l1.2 2.8L66 22l-2.8 1.2L62 26l-1.2-2.8L58 22l2.8-1.2L62 18z" fill="#0f0f0f" />
+    </svg>
+  );
+}
+
+function NewsBannerIllustration() {
+  return (
+    <svg viewBox="0 0 320 120" className="dash26-news-svg" aria-hidden="true">
+      <rect width="320" height="120" rx="12" fill="#FFF7CC" />
+      <circle cx="160" cy="60" r="36" fill="#FDE047" stroke="#0f0f0f" strokeWidth="2" />
+      <circle cx="92" cy="42" r="14" fill="#FEF08A" stroke="#0f0f0f" strokeWidth="1.8" />
+      <circle cx="228" cy="76" r="16" fill="#FACC15" stroke="#0f0f0f" strokeWidth="1.8" />
+      <path d="M48 82c12-18 24-22 36-10M242 28c14 6 24 18 26 32" stroke="#0f0f0f" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <path d="M160 38v44M138 60h44" stroke="#0f0f0f" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function Dashboard() {
   const navigate = useNavigate();
-  const { videos = [], comments = [], channelInfo = {}, analytics = {}, spreadsheetWarnings = [], showToast } = useStore();
+  const {
+    channelInfo,
+    videos,
+    comments,
+    selectedDateRange,
+    getAnalyticsForRange,
+    tickRealtime,
+    showToast,
+  } = useStore();
 
-  const latestVideo = (videos && videos.length > 0) ? videos[0] : null;
-  const recentComments = (comments || []).filter(c => c && c.status !== 'Held for review').slice(0, 3);
-  const recentSubscribers = analytics?.subscribers || [];
+  const [ideaIndex, setIdeaIndex] = useState(0);
+  const [newsIndex, setNewsIndex] = useState(0);
+  const [latestExpanded, setLatestExpanded] = useState(true);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showLiveCountModal, setShowLiveCountModal] = useState(false);
+  const [liveSubOffset, setLiveSubOffset] = useState(0);
 
-  const [ideasIdx, setIdeasIdx] = useState(1);
-  const [creatorIdx, setCreatorIdx] = useState(0);
+  const channelSnap = getAnalyticsForRange(selectedDateRange || 'lifetime');
+  const agg = channelSnap?.aggregated || {};
+
+  const latestVideo = useMemo(() => {
+    if (!videos || videos.length === 0) return null;
+    return videos[0];
+  }, [videos]);
+
+  const rankedByViews = useMemo(() => {
+    const sorted = [...(videos || [])].sort((a, b) => (b.views || 0) - (a.views || 0));
+    if (!latestVideo) return 1;
+    const idx = sorted.findIndex((v) => v.id === latestVideo.id);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [videos, latestVideo]);
+
+  const publishedVideos = useMemo(() => (videos || []).slice(1, 5), [videos]);
+
+  // Preserve original top 3 realtime videos by sortOrder with exact realtimeViews48h values
+  const topRealtimeVideos = useMemo(() => {
+    return [...(videos || [])]
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .slice(0, 3)
+      .map((v) => ({
+        id: v.id,
+        title: v.title,
+        views48h:
+          v.realtimeViews48h !== undefined &&
+          v.realtimeViews48h !== null &&
+          Number(v.realtimeViews48h) > 0
+            ? Number(v.realtimeViews48h)
+            : Number(v.views || 0),
+      }));
+  }, [videos]);
+
+  const recentComments = useMemo(
+    () => (comments || []).filter((c) => c && c.status !== 'Held for review').slice(0, 3),
+    [comments]
+  );
 
   useEffect(() => {
-    console.info('[Spreadsheet] Dashboard Rendered', { videos: videos.length });
-  }, [videos.length]);
+    const timer = setInterval(() => {
+      if (typeof tickRealtime === 'function') tickRealtime();
+      if (showLiveCountModal) {
+        setLiveSubOffset((prev) => prev + (Math.random() > 0.35 ? 1 : 0));
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [tickRealtime, showLiveCountModal]);
 
-  // Static "Ideas for you" cards matching the screenshot
-  const ideasCards = [
-    {
-      title: 'Apply for channel verification',
-      desc: 'You are eligible to apply for channel verification. If approved, you will receive a verification badge next to your channel name indicating that it\'s your official channel.',
-      btnLabel: 'Apply now',
-      img: 'https://www.gstatic.com/youtube/img/creator/channel_verification_illustration.svg',
-      imgFallback: null,
-    },
-    {
-      title: 'Turn on Super Thanks',
-      desc: 'Increase your earnings potential and better connect with fans. Purchasers get a comment that stands out.',
-      btnLabel: 'Enable now',
-      img: null,
-      imgFallback: '🎉',
+  const currentIdea = IDEAS_SLIDES[ideaIndex % IDEAS_SLIDES.length];
+  const currentNews = NEWS_SLIDES[newsIndex % NEWS_SLIDES.length];
+  const liveSubCount = (channelInfo?.subscribers || 0) + liveSubOffset;
+
+  // Original summary metrics from channelInfo (falling back to snapshot agg)
+  const summaryViews =
+    channelInfo?.viewsLast28DaysFormatted ||
+    agg.viewsFormatted ||
+    fmtV(channelInfo?.viewsLast28Days || agg.views || 0);
+  const summaryWatchTime = (
+    channelInfo?.watchTimeLast28DaysFormatted ||
+    agg.watchTimeHrsFormatted ||
+    (channelInfo?.watchTimeLast28Days ? fmtW(channelInfo.watchTimeLast28Days) : formatHoursValue(agg.watchTimeHrs || 0))
+  ).replace(/\s*hrs\s*/gi, '');
+  const summaryRevenueNum = channelInfo?.revenueLast28Days ?? agg.revenue ?? 0;
+  const summaryRevenueFormatted = channelInfo?.revenueLast28DaysFormatted
+    ? formatINR(channelInfo.revenueLast28DaysFormatted)
+    : agg.revenueFormatted || formatINR(summaryRevenueNum);
+  const summarySubsDelta =
+    channelInfo?.subscribersGainedLast28DaysFormatted ||
+    (channelInfo?.subscribersGainedLast28Days ? fmtS(channelInfo.subscribersGainedLast28Days) : agg.subscribersNetFormatted || '+0');
+
+  const handleIdeaAction = () => {
+    if (currentIdea.actionType === 'research') {
+      navigate(`${CHANNEL_PREFIX}/analytics/hub_research`);
+    } else {
+      openAskStudio('Analyze title patterns of my top videos');
     }
-  ];
+  };
 
-  const creatorVideos = [
-    {
-      title: 'YouTube: Creator vs Influencer',
-      desc: 'Doctor Mike and Rene Ritchie discuss balancing education with entertainment, avoiding viral traps, and staying healthy in demanding careers.',
-      thumb: 'https://i.ytimg.com/vi/h5sW12TFO0g/hqdefault.jpg',
-      url: 'https://www.youtube.com/watch?v=h5sW12TFO0g',
-    },
-    {
-      title: 'How to Grow on YouTube in 2026',
-      desc: 'The YouTube team discusses what\'s working in 2026, from Shorts strategy to long-form content optimization.',
-      thumb: 'https://i.ytimg.com/vi/A0Ks5q1pj2M/hqdefault.jpg',
-      url: 'https://www.youtube.com/watch?v=A0Ks5q1pj2M',
-    },
-    {
-      title: 'Inside YouTube Studio Updates',
-      desc: 'A deep dive into the newest YouTube Studio features including improved analytics and community tools.',
-      thumb: 'https://i.ytimg.com/vi/VtF9yTFMHFM/hqdefault.jpg',
-      url: 'https://www.youtube.com/watch?v=VtF9yTFMHFM',
-    },
-  ];
-
-  const whatsNew = [
-    'Increasing Shorts length',
-    'Expansion of channel permissions',
-    'Upcoming changes to Community Guidelines warnings',
-  ];
-
-  const shoppingItems = [
-    {
-      title: 'Good news for Furniture Commissions: you now get paid more for products you promote',
-      ends: 'Ends Aug 31, 11:59PM',
-      thumb: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=80&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Good news for Fashion Commissions: you now get paid more for products you promote',
-      ends: 'Ends Aug 31, 11:59PM',
-      thumb: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=80&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const pollOptions = [
-    { label: '15 Se kam', pct: 8 },
-    { label: '15 se 24', pct: 36 },
-    { label: '25 se 35', pct: 44 },
-    { label: '35 +', pct: 13 },
-  ];
-
-  const totalIdeas = ideasCards.length;
-  const totalCreator = creatorVideos.length;
+  const handleNewsAction = () => {
+    if (currentNews.path === 'ask') {
+      openAskStudio('Summarize my channel performance');
+    } else {
+      navigate(currentNews.path);
+    }
+  };
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header-row">
-        <h1 className="dashboard-title">Channel dashboard</h1>
-        <div className="dashboard-header-actions">
-          <button className="dash-icon-btn" title="Upload video" onClick={() => showToast("Click CREATE at top-right to upload", "info")}>
+    <div className="dash26-page">
+      {/* Page Header */}
+      <div className="dash26-header">
+        <h1 className="dash26-title yt-display-font">Channel dashboard</h1>
+        <div className="dash26-header-actions">
+          <button
+            type="button"
+            className="dash26-circle-btn"
+            onClick={() => setShowUploadModal(true)}
+            title="Upload videos"
+            aria-label="Upload videos"
+          >
             <span className="material-symbols-outlined">upload</span>
           </button>
-          <button className="dash-icon-btn" title="Go live" onClick={() => showToast("Simulated Live Stream initiated", "info")}>
+          <button
+            type="button"
+            className="dash26-circle-btn"
+            onClick={() => showToast('Go live studio panel ready', 'info')}
+            title="Go live"
+            aria-label="Go live"
+          >
             <span className="material-symbols-outlined">sensors</span>
           </button>
-          <button className="dash-icon-btn" title="Create post" onClick={() => showToast("Create post opened", "info")}>
-            <span className="material-symbols-outlined">edit_note</span>
+          <button
+            type="button"
+            className="dash26-circle-btn"
+            onClick={() => navigate(`${CHANNEL_PREFIX}/content/posts`)}
+            title="Create post"
+            aria-label="Create post"
+          >
+            <span className="material-symbols-outlined">edit_square</span>
           </button>
         </div>
       </div>
 
-      {spreadsheetWarnings && spreadsheetWarnings.length > 0 && (
-        <div style={{ backgroundColor: 'rgba(255,171,0,0.1)', border: '1px solid #ffab00', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', color: '#ffc400', fontSize: '13px' }}>
-          <strong>Spreadsheet CMS Status:</strong>
-          <ul style={{ margin: '4px 0 0 20px', padding: 0 }}>
-            {spreadsheetWarnings.map((warn, i) => (<li key={i}>{warn}</li>))}
-          </ul>
-        </div>
-      )}
-
-      <div className="dashboard-grid">
-
-        {/* ── LEFT COL ── */}
-
-        {/* 1. Latest video performance */}
-        <div className="dashboard-card latest-video-card">
-          <div className="card-header"><h2>Latest video performance</h2></div>
-          <div className="card-content">
+      {/* 3-Column Bento Grid */}
+      <div className="dash26-bento">
+        {/* Column 1 */}
+        <div className="dash26-col">
+          {/* Card: Latest Video Performance */}
+          <section className="dash26-card">
+            <h2 className="dash26-card-title">Latest video performance</h2>
             {latestVideo ? (
               <>
-                <div className="video-thumbnail" onClick={() => navigate(`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${latestVideo.id}`)}>
-                  <img src={latestVideo.thumbnail} alt="Video thumbnail" />
-                  <div className="video-duration">{latestVideo.duration}</div>
+                <div
+                  className="dash26-latest-thumb-wrap"
+                  onClick={() => navigate(`${CHANNEL_PREFIX}/video/${latestVideo.id}/edit`)}
+                >
+                  <img
+                    src={latestVideo.thumbnail || '/thumbnails/latest_video.png'}
+                    alt={latestVideo.title}
+                    className="dash26-latest-thumb"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/thumbnails/latest_video.png';
+                    }}
+                  />
+                  <div className="dash26-latest-thumb-grad">
+                    <p className="dash26-latest-thumb-title">{latestVideo.title}</p>
+                  </div>
                 </div>
-                <div className="video-stats-summary">
-                  <p className="video-title" onClick={() => navigate(`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${latestVideo.id}`)}>
-                    {latestVideo.title}
-                  </p>
-                  {/* Mini icon stats bar */}
-                  <div className="lv-mini-bar">
-                    <span className="lv-mini-item">
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#aaa' }}>insert_chart</span>
-                      {latestVideo.viewsFormatted || latestVideo.views?.toLocaleString() || '0'}
+
+                <div className="dash26-mini-stats-strip">
+                  <div className="dash26-mini-stats-left">
+                    <span title="Views">
+                      <span className="material-symbols-outlined">bar_chart</span>
+                      {latestVideo.viewsFormatted || fmtV(latestVideo.views || 0)}
                     </span>
-                    <span className="lv-mini-item">
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#aaa' }}>comment</span>
-                      {latestVideo.comments?.toLocaleString() || '0'}
+                    <span title="Comments">
+                      <span className="material-symbols-outlined">chat_bubble_outline</span>
+                      {latestVideo.comments ?? latestVideo.commentsCount ?? 0}
                     </span>
-                    <span className="lv-mini-item">
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#aaa' }}>thumb_up</span>
-                      {latestVideo.likes?.toLocaleString() || '0'}
-                    </span>
-                    <span className="lv-mini-expand">
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#aaa' }}>expand_less</span>
+                    <span title="Likes">
+                      <span className="material-symbols-outlined">thumb_up_off_alt</span>
+                      {latestVideo.likesFormatted || fmtV(latestVideo.likes || 0)}
                     </span>
                   </div>
-                  <div className="lv-period-label">First 15 days 5 hours</div>
-                  <div className="stat-row">
-                    <span className="stat-label">Ranking by views</span>
-                    <span className="stat-value lv-rank-val">3 of 10
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle', color: '#aaa' }}>chevron_right</span>
+                  <button
+                    type="button"
+                    className="dash26-collapse-btn"
+                    onClick={() => setLatestExpanded((v) => !v)}
+                    aria-label="Toggle details"
+                  >
+                    <span className="material-symbols-outlined">
+                      {latestExpanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                     </span>
-                  </div>
-                  <div className="stat-row lv-highlight-row">
-                    <span className="stat-label lv-hl-label">Views</span>
-                    <span className="stat-value lv-hl-val">
-                      {latestVideo.viewsFormatted || (latestVideo.views ? fmtV(latestVideo.views) : '0')}
-                      <StudioUpBadge style={{ marginLeft: '6px' }} />
-                    </span>
-                  </div>
-                  <div className="stat-row lv-highlight-row">
-                    <span className="stat-label lv-hl-label">Impressions click-through rate</span>
-                    <span className="stat-value lv-hl-val">
-                      {latestVideo.ctr ? `${latestVideo.ctr}%` : '9.0%'}
-                      <StudioUpBadge style={{ marginLeft: '6px' }} />
-                    </span>
-                  </div>
-                  <div className="stat-row lv-highlight-row">
-                    <span className="stat-label lv-hl-label">Average view duration</span>
-                    <span className="stat-value lv-hl-val">
-                      {latestVideo.avgViewDuration || latestVideo.avd || '1:45'}
-                      <StudioDownBadge color="#aaaaaa" style={{ marginLeft: '6px' }} />
-                    </span>
-                  </div>
-                  {/* Catch me up row */}
-                  <div className="lv-catch-row">
-                    <button className="lv-catch-btn">
-                      <span style={{ fontSize: '16px' }}>✦</span> Catch me up on this video
+                  </button>
+                </div>
+
+                {latestExpanded && (
+                  <>
+                    <p className="dash26-since-label">Published {formatPublishDate(latestVideo)}</p>
+
+                    <div className="dash26-plain-rows">
+                      <div
+                        className="dash26-plain-row clickable"
+                        onClick={() =>
+                          navigate(`${CHANNEL_PREFIX}/video/${latestVideo.id}/analytics/hub_overview`)
+                        }
+                      >
+                        <span className="dash26-row-name">Ranking by views</span>
+                        <span className="dash26-row-val-group">
+                          <span>
+                            {rankedByViews} of {videos.length || 10}
+                          </span>
+                          <span className="material-symbols-outlined dash26-chevron">chevron_right</span>
+                        </span>
+                      </div>
+
+                      <div className="dash26-plain-row">
+                        <span className="dash26-row-name">Views</span>
+                        <span className="dash26-row-val-group">
+                          <span>{latestVideo.viewsFormatted || fmtV(latestVideo.views || 0)}</span>
+                        </span>
+                      </div>
+
+                      <div className="dash26-plain-row">
+                        <span className="dash26-row-name">Thumbnail click-through rate</span>
+                        <span className="dash26-row-val-group">
+                          <span>{formatPctValue(latestVideo.ctr, '8.9%')}</span>
+                        </span>
+                      </div>
+
+                      <div className="dash26-plain-row">
+                        <span className="dash26-row-name">Average view duration</span>
+                        <span className="dash26-row-val-group">
+                          <span>{latestVideo.avgViewDuration || latestVideo.avgDuration || '4:15'}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="dash26-card-footer-row">
+                  <button
+                    type="button"
+                    className="dash26-pill-btn"
+                    onClick={() =>
+                      openAskStudio('Catch me up on this video', latestVideo.id)
+                    }
+                  >
+                    <AskSparkleIcon size={15} />
+                    <span>Catch me up on this video</span>
+                  </button>
+                  <div className="dash26-round-icon-pair">
+                    <button
+                      type="button"
+                      className="dash26-round-pill-icon"
+                      title="Video insights"
+                      onClick={() =>
+                        navigate(`${CHANNEL_PREFIX}/video/${latestVideo.id}/analytics/hub_overview`)
+                      }
+                    >
+                      <span className="material-symbols-outlined">insert_chart</span>
                     </button>
-                    <Link to={`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/analytics/tab-overview/period-last-28-days?video=${latestVideo.id}`} className="lv-action-icon-btn" title="Analytics">
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#ccc' }}>insert_chart</span>
-                    </Link>
-                    <Link to="/channel/UCqpdVWIzEQUcbf4pAxlneOQ/community/comments" className="lv-action-icon-btn" title="Comments">
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#ccc' }}>chat_bubble_outline</span>
-                    </Link>
+                    <button
+                      type="button"
+                      className="dash26-round-pill-icon"
+                      title="Video comments"
+                      onClick={() =>
+                        navigate(`${CHANNEL_PREFIX}/video/${latestVideo.id}/comments`)
+                      }
+                    >
+                      <span className="material-symbols-outlined">chat_bubble_outline</span>
+                    </button>
                   </div>
                 </div>
               </>
             ) : (
-              <p style={{ color: 'var(--text-secondary)', padding: '24px 0' }}>No recent video uploads found.</p>
+              <p className="dash26-empty-note">Upload your first video to track performance here.</p>
             )}
-          </div>
-        </div>
+          </section>
 
-        {/* 2. Channel analytics */}
-        <div className="dashboard-card analytics-card">
-          <div className="card-header"><h2>Channel analytics</h2></div>
-          <div className="card-content">
-            <div className="current-subs">
-              <h3>Current subscribers</h3>
-              <div className="sub-count">{channelInfo?.subscribersFormatted || (channelInfo?.subscribers ? channelInfo.subscribers.toLocaleString('en-IN') : '0')}</div>
-              <div className="sub-change">{channelInfo?.subscribersGainedLast28DaysFormatted || (channelInfo?.subscribersGainedLast28Days ? fmtS(channelInfo.subscribersGainedLast28Days) : '+0')} in last 28 days</div>
-            </div>
-            <div className="summary-section">
-              <h3>Summary</h3>
-              <p className="summary-period">Last 28 days</p>
-              <div className="stat-row">
-                <span className="stat-label">Views</span>
-                <span className="stat-value ana-stat-val">
-                  {channelInfo?.viewsLast28DaysFormatted || (channelInfo?.viewsLast28Days ? fmtV(channelInfo.viewsLast28Days) : '0')}
-                  <StudioCheckBadge style={{ marginLeft: '6px' }} />
-                </span>
-              </div>
-              <div className="stat-row">
-                <span className="stat-label">Watch time (hours)</span>
-                <span className="stat-value ana-stat-val">
-                  {(channelInfo?.watchTimeLast28DaysFormatted || (channelInfo?.watchTimeLast28Days ? fmtW(channelInfo.watchTimeLast28Days) : '0')).replace(/\s*hrs\s*/gi, '')}
-                  <StudioCheckBadge style={{ marginLeft: '6px' }} />
-                </span>
-              </div>
-              <div className="stat-row">
-                <span className="stat-label">Estimated revenue</span>
-                <span className="stat-value ana-stat-val">
-                  {channelInfo?.revenueLast28DaysFormatted ? formatINR(channelInfo.revenueLast28DaysFormatted) : formatINR(channelInfo?.revenueLast28Days || 0)}
-                  <StudioUpBadge style={{ marginLeft: '6px' }} />
-                </span>
-              </div>
-            </div>
-            <div className="top-videos-section">
-              <h3>Top content</h3>
-              <p className="summary-period">Last 48 hours · Views</p>
-              {(videos || []).slice(0, 3).map(v => (
-                <div className="top-video-item" key={v.id} onClick={() => navigate(`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${v.id}`)}>
-                  <span className="video-name">{v.title}</span>
-                  <span className="video-views">{v.viewsFormatted || fmtV(v.views)}</span>
+          {/* Card: Published Videos */}
+          <section className="dash26-card">
+            <h2 className="dash26-card-title">Published videos</h2>
+            <div className="dash26-pub-list">
+              {(publishedVideos.length > 0 ? publishedVideos : videos.slice(0, 4)).map((v) => (
+                <div
+                  key={v.id}
+                  className="dash26-pub-item"
+                  onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/edit`)}
+                >
+                  <div className="dash26-pub-thumb-box">
+                    <img
+                      src={v.thumbnail || '/thumbnails/latest_video.png'}
+                      alt={v.title}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/thumbnails/latest_video.png';
+                      }}
+                    />
+                  </div>
+                  <div className="dash26-pub-info">
+                    <p className="dash26-pub-title">{v.title}</p>
+                    <div className="dash26-pub-metrics">
+                      <span>
+                        <span className="material-symbols-outlined">bar_chart</span>
+                        {v.viewsFormatted || fmtV(v.views || 0)}
+                      </span>
+                      <span>
+                        <span className="material-symbols-outlined">chat_bubble_outline</span>
+                        {v.comments ?? v.commentsCount ?? 0}
+                      </span>
+                      <span>
+                        <span className="material-symbols-outlined">thumb_up_off_alt</span>
+                        {v.likesFormatted || fmtV(v.likes || 0)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-          <div className="card-footer">
-            <Link to="/channel/UCqpdVWIzEQUcbf4pAxlneOQ/analytics/tab-overview/period-last-28-days">Go to channel analytics</Link>
-          </div>
+            <button
+              type="button"
+              className="dash26-pill-btn"
+              onClick={() => navigate(`${CHANNEL_PREFIX}/content/videos`)}
+            >
+              Go to videos
+            </button>
+          </section>
         </div>
 
-        {/* 3. Ideas for you */}
-        <div className="dashboard-card ideas-card">
-          <div className="card-header ideas-header">
-            <h2>Ideas for you</h2>
-            <div className="card-nav-arrows">
-              <button onClick={() => setIdeasIdx(i => (i - 1 + totalIdeas) % totalIdeas)} disabled={ideasIdx === 0}>
-                <span className="material-symbols-outlined">chevron_left</span>
-              </button>
-              <span className="card-nav-counter">{ideasIdx + 1} / {totalIdeas}</span>
-              <button onClick={() => setIdeasIdx(i => (i + 1) % totalIdeas)} disabled={ideasIdx === totalIdeas - 1}>
-                <span className="material-symbols-outlined">chevron_right</span>
-              </button>
+        {/* Column 2 */}
+        <div className="dash26-col">
+          {/* Card: Channel Analytics */}
+          <section className="dash26-card">
+            <h2 className="dash26-card-title">Channel analytics</h2>
+            <p className="dash26-sub-label">Current subscribers</p>
+            <div className="dash26-huge-subs yt-display-font">
+              {channelInfo?.subscribersFormatted ||
+                (channelInfo?.subscribers ? channelInfo.subscribers.toLocaleString('en-IN') : '0')}
             </div>
-          </div>
-          <div className="card-content ideas-content">
-            <div className="ideas-inner">
-              <div className="ideas-text">
-                <h4>{ideasCards[ideasIdx].title}</h4>
-                <p className="news-desc">{ideasCards[ideasIdx].desc}</p>
-                <div className="ideas-actions">
-                  <button className="yt-sync-btn" onClick={() => showToast(`${ideasCards[ideasIdx].btnLabel} clicked!`, 'success')}>
-                    {ideasCards[ideasIdx].btnLabel}
-                  </button>
-                  <button className="ideas-more-btn" title="More options">
-                    <span className="material-symbols-outlined">more_vert</span>
-                  </button>
-                </div>
+            <p className="dash26-subs-delta">
+              {summarySubsDelta} in last 28 days
+            </p>
+            <button
+              type="button"
+              className="dash26-pill-btn dash26-mb-20"
+              onClick={() => setShowLiveCountModal(true)}
+            >
+              View live count
+            </button>
+
+            <div className="dash26-divider" />
+
+            <h3 className="dash26-sec-title">Summary</h3>
+            <p className="dash26-sec-sub">Last 28 days</p>
+            <div className="dash26-summary-rows">
+              <div className="dash26-summary-row">
+                <span>Views</span>
+                <span className="dash26-row-val-group">
+                  <span>{summaryViews}</span>
+                  <StudioUpBadge />
+                </span>
               </div>
-              {ideasCards[ideasIdx].img ? (
-                <img src={ideasCards[ideasIdx].img} alt="ideas" className="ideas-img" onError={e => { e.target.style.display = 'none'; }} />
-              ) : (
-                <div className="ideas-emoji">{ideasCards[ideasIdx].imgFallback}</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Published videos */}
-        <div className="dashboard-card published-card">
-          <div className="card-header"><h2>Published videos</h2></div>
-          <div className="card-content">
-            {videos.slice(0, 4).map(video => (
-              <div className="published-video-row" key={video.id} onClick={() => navigate(`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${video.id}`)}>
-                <img src={video.thumbnail} alt="" />
-                <div>
-                  <b>{video.title}</b>
-                  <span>
-                    <span className="pub-stat"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>bar_chart</span> {video.viewsFormatted || (video.views ? fmtV(video.views) : '0')}</span>
-                    <span className="pub-stat"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>comment</span> {video.comments?.toLocaleString() || 0}</span>
-                    <span className="pub-stat"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>thumb_up</span> {video.likes?.toLocaleString() || 0}</span>
+              <div className="dash26-summary-row">
+                <span>Watch time (hours)</span>
+                <span className="dash26-row-val-group">
+                  <span>{summaryWatchTime}</span>
+                  <StudioUpBadge />
+                </span>
+              </div>
+              {summaryRevenueNum > 0 && (
+                <div className="dash26-summary-row">
+                  <span>Estimated revenue</span>
+                  <span className="dash26-row-val-group">
+                    <span>{summaryRevenueFormatted}</span>
+                    <StudioUpBadge />
                   </span>
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className="card-footer">
-            <Link to="/channel/UCqpdVWIzEQUcbf4pAxlneOQ/content/videos">Go to videos</Link>
-          </div>
-        </div>
-
-        {/* 5. Comments */}
-        <div className="dashboard-card comments-card">
-          <div className="card-header"><h2>Comments</h2></div>
-          <div className="card-content">
-            <p className="summary-period">Last 48 hours</p>
-            {recentComments.map(c => (
-              <div className="comment-item" key={c.id} onClick={() => navigate('/channel/UCqpdVWIzEQUcbf4pAxlneOQ/community/comments')}>
-                <img src={c.authorAvatar} alt="User" className="comment-avatar" />
-                <div className="comment-details">
-                  <div className="comment-meta">
-                    <span className="comment-author">@{c.author?.replace('@', '')}</span>
-                    <span className="comment-time">{c.time}</span>
-                    {c.status === 'Published' && <span className="comment-badge">• Post</span>}
-                  </div>
-                  <p className="comment-text">{c.text}</p>
-                </div>
-                {c.videoThumb && <img src={c.videoThumb} alt="" className="comment-video-thumb" />}
-              </div>
-            ))}
-          </div>
-          <div className="card-footer">
-            <Link to="/channel/UCqpdVWIzEQUcbf4pAxlneOQ/community/comments">View more</Link>
-          </div>
-        </div>
-
-        {/* 6. Creator Insider */}
-        <div className="dashboard-card creator-insider-card">
-          <div className="card-header ideas-header">
-            <h2>Creator Insider</h2>
-            <div className="card-nav-arrows">
-              <button onClick={() => setCreatorIdx(i => (i - 1 + totalCreator) % totalCreator)} disabled={creatorIdx === 0}>
-                <span className="material-symbols-outlined">chevron_left</span>
-              </button>
-              <span className="card-nav-counter">{creatorIdx + 1} / {totalCreator}</span>
-              <button onClick={() => setCreatorIdx(i => (i + 1) % totalCreator)} disabled={creatorIdx === totalCreator - 1}>
-                <span className="material-symbols-outlined">chevron_right</span>
-              </button>
-            </div>
-          </div>
-          <div className="card-content">
-            <div className="news-item">
-              <img src={creatorVideos[creatorIdx].thumb} alt="Creator Insider" className="news-thumb"
-                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80'; }} />
-              <h4>{creatorVideos[creatorIdx].title}</h4>
-              <p className="news-desc">{creatorVideos[creatorIdx].desc}</p>
-            </div>
-          </div>
-          <div className="card-footer">
-            <a href={creatorVideos[creatorIdx].url} target="_blank" rel="noreferrer">Watch on YouTube</a>
-          </div>
-        </div>
-
-        {/* 7. Shopping */}
-        <div className="dashboard-card shopping-card">
-          <div className="card-header"><h2>Shopping</h2></div>
-          <div className="card-content">
-            <p className="summary-period">Latest affiliate offers</p>
-            {shoppingItems.map((item, i) => (
-              <div className="shopping-item" key={i}>
-                <img src={item.thumb} alt="" className="shopping-thumb"
-                  onError={e => { e.target.src = 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=80&auto=format&fit=crop&q=80'; }} />
-                <div className="shopping-info">
-                  <span className="shopping-ends">{item.ends}</span>
-                  <span className="shopping-title">{item.title}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="card-footer">
-            <span className="footer-action-link" onClick={() => showToast('Opening shopping...', 'info')}>Go to shopping</span>
-          </div>
-        </div>
-
-        {/* 8. Recent subscribers */}
-        <div className="dashboard-card subscribers-card">
-          <div className="card-header"><h2>Recent subscribers</h2></div>
-          <div className="card-content">
-            <p className="summary-period">Last 90 days</p>
-            <div className="recent-sub-list">
-              {recentSubscribers.length > 0 ? (
-                recentSubscribers.slice(0, 3).map((sub, idx) => (
-                  <div className="sub-item" key={idx}>
-                    <img src={sub.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(sub.name || 'U')}&background=333&color=fff`} alt="Sub" className="sub-avatar" />
-                    <div className="sub-info">
-                      <span className="sub-name">{sub.name}</span>
-                      <span className="sub-count-meta">{sub.subscribers ? `${Number(sub.subscribers).toLocaleString()} subscribers` : sub.date}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <>
-                  {[
-                    { name: 'Lik07 Nitin Lakhera', subs: '479K' },
-                    { name: 'Real Sato', subs: '349K' },
-                    { name: 'Ai Story Nexa', subs: '285K' },
-                  ].map((s, idx) => (
-                    <div className="sub-item" key={idx}>
-                      <div className="sub-avatar-placeholder">{s.name[0]}</div>
-                      <div className="sub-info">
-                        <span className="sub-name">{s.name}</span>
-                        <span className="sub-count-meta">{s.subs} subscribers</span>
-                      </div>
-                    </div>
-                  ))}
-                </>
               )}
             </div>
-          </div>
-          <div className="card-footer">
-            <span className="footer-action-link" onClick={() => showToast('Showing all recent subscribers', 'info')}>See all</span>
-          </div>
-        </div>
 
-        {/* 9. What's new in Studio */}
-        <div className="dashboard-card whats-new-card">
-          <div className="card-header"><h2>What's new in Studio</h2></div>
-          <div className="card-content">
-            {whatsNew.map((item, i) => (
-              <div className="whats-new-item" key={i} onClick={() => showToast(item, 'info')}>
-                <span>{item}</span>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#aaa' }}>chevron_right</span>
-              </div>
-            ))}
-          </div>
-        </div>
+            <button
+              type="button"
+              className="dash26-pill-btn dash26-mb-20"
+              onClick={() => navigate(`${CHANNEL_PREFIX}/analytics/hub_overview`)}
+            >
+              Go to channel insights
+            </button>
 
-        {/* 10. Latest post */}
-        <div className="dashboard-card latest-post-card">
-          <div className="card-header"><h2>Latest post</h2></div>
-          <div className="card-content">
-            <div className="post-meta">
-              <img src={channelInfo?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(channelInfo?.name || 'C')}&background=333&color=fff`} alt="Channel" className="post-avatar" />
-              <div>
-                <span className="post-channel">{channelInfo?.name || 'Your Channel'}</span>
-                <span className="post-date"> • Aug 6, 2026</span>
-              </div>
-            </div>
-            <p className="post-question">what's your age ?</p>
-            <div className="poll-options">
-              {pollOptions.map((opt, i) => (
-                <div className="poll-option" key={i}>
-                  <div className="poll-bar-wrap">
-                    <span className="poll-label">{opt.label}</span>
-                    <div className="poll-bar-track">
-                      <div className="poll-bar-fill" style={{ width: `${opt.pct}%` }}></div>
-                    </div>
-                    <span className="poll-pct">{opt.pct}%</span>
-                  </div>
+            <div className="dash26-divider" />
+
+            <h3 className="dash26-sec-title">Top content</h3>
+            <p className="dash26-sec-sub">Last 48 hours · Views</p>
+            <div className="dash26-top-content-list">
+              {topRealtimeVideos.map((item) => (
+                <div
+                  key={item.id}
+                  className="dash26-top-content-row"
+                  onClick={() =>
+                    navigate(`${CHANNEL_PREFIX}/video/${item.id}/analytics/hub_overview`)
+                  }
+                >
+                  <span className="dash26-tc-name">{item.title}</span>
+                  <span className="dash26-tc-views">{item.views48h.toLocaleString('en-IN')}</span>
                 </div>
               ))}
             </div>
-            <div className="post-stats">
-              <span><strong>Votes</strong><br />132</span>
-              <span><strong>Comments</strong><br />1</span>
-              <span><strong>Likes</strong><br />4</span>
+
+            <button
+              type="button"
+              className="dash26-pill-btn"
+              onClick={() => navigate(`${CHANNEL_PREFIX}/analytics/hub_overview`)}
+            >
+              View realtime data
+            </button>
+          </section>
+
+          {/* Card: Latest Comments */}
+          <section className="dash26-card">
+            <h2 className="dash26-card-title">Comments</h2>
+            <p className="dash26-sec-sub dash26-mb-14">Channel comments I haven&apos;t responded to</p>
+            <div className="dash26-comments-list">
+              {recentComments.map((c) => (
+                <div
+                  key={c.id}
+                  className="dash26-comment-row"
+                  onClick={() => navigate(`${CHANNEL_PREFIX}/community/comments`)}
+                >
+                  <img
+                    src={
+                      c.authorAvatar ||
+                      c.avatar ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(c.author || 'U')}&background=f2f2f2&color=0f0f0f`
+                    }
+                    alt={c.author}
+                    className="dash26-comment-avatar"
+                  />
+                  <div className="dash26-comment-body">
+                    <div className="dash26-comment-meta">
+                      <span>{c.author}</span> · <span>{c.time || c.timeAgo || c.date || 'Recently'}</span>
+                    </div>
+                    <p className="dash26-comment-text">{c.text}</p>
+                  </div>
+                  {latestVideo?.thumbnail && (
+                    <img
+                      src={latestVideo.thumbnail}
+                      alt="Video"
+                      className="dash26-comment-thumb"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-            <p className="post-tip">Leave a heart and reply on your post to show you care!</p>
-          </div>
-          <div className="card-footer">
-            <Link to="/channel/UCqpdVWIzEQUcbf4pAxlneOQ/community/comments">Go to Posts tab</Link>
-          </div>
+            <button
+              type="button"
+              className="dash26-pill-btn"
+              onClick={() => navigate(`${CHANNEL_PREFIX}/community/comments`)}
+            >
+              View more
+            </button>
+          </section>
         </div>
 
+        {/* Column 3 */}
+        <div className="dash26-col">
+          {/* Card: Ideas for you */}
+          <section className="dash26-card">
+            <div className="dash26-card-head-row">
+              <h2 className="dash26-card-title">Ideas for you</h2>
+              <div className="dash26-pager">
+                <button
+                  type="button"
+                  className="dash26-pager-btn"
+                  onClick={() =>
+                    setIdeaIndex((prev) => (prev - 1 + IDEAS_SLIDES.length) % IDEAS_SLIDES.length)
+                  }
+                  aria-label="Previous idea"
+                >
+                  <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+                <span>
+                  {(ideaIndex % IDEAS_SLIDES.length) + 1} / {IDEAS_SLIDES.length}
+                </span>
+                <button
+                  type="button"
+                  className="dash26-pager-btn"
+                  onClick={() => setIdeaIndex((prev) => (prev + 1) % IDEAS_SLIDES.length)}
+                  aria-label="Next idea"
+                >
+                  <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="dash26-idea-box">
+              <div className="dash26-idea-copy">
+                <h3 className="dash26-idea-headline">{currentIdea.title}</h3>
+                <p className="dash26-idea-desc">{currentIdea.body}</p>
+              </div>
+              <CoinsIllustration />
+            </div>
+
+            <div className="dash26-carousel-footer">
+              <button
+                type="button"
+                className="dash26-pill-btn"
+                onClick={handleIdeaAction}
+              >
+                {currentIdea.actionLabel}
+              </button>
+              <button
+                type="button"
+                className="dash26-more-ic-btn"
+                aria-label="More options"
+                onClick={() => showToast('Idea feedback updated', 'info')}
+              >
+                <span className="material-symbols-outlined">more_vert</span>
+              </button>
+            </div>
+          </section>
+
+          {/* Card: News */}
+          <section className="dash26-card">
+            <div className="dash26-card-head-row">
+              <h2 className="dash26-card-title">News</h2>
+              <div className="dash26-pager">
+                <button
+                  type="button"
+                  className="dash26-pager-btn"
+                  onClick={() =>
+                    setNewsIndex((prev) => (prev - 1 + NEWS_SLIDES.length) % NEWS_SLIDES.length)
+                  }
+                  aria-label="Previous news"
+                >
+                  <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+                <span>
+                  {(newsIndex % NEWS_SLIDES.length) + 1} / {NEWS_SLIDES.length}
+                </span>
+                <button
+                  type="button"
+                  className="dash26-pager-btn"
+                  onClick={() => setNewsIndex((prev) => (prev + 1) % NEWS_SLIDES.length)}
+                  aria-label="Next news"
+                >
+                  <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="dash26-news-banner">
+              <NewsBannerIllustration />
+            </div>
+
+            <h3 className="dash26-news-headline">{currentNews.title}</h3>
+            <p className="dash26-news-body">{currentNews.body}</p>
+
+            <button type="button" className="dash26-pill-btn" onClick={handleNewsAction}>
+              {currentNews.actionLabel}
+            </button>
+          </section>
+        </div>
       </div>
 
-      {/* Footer */}
-      <div className="dashboard-footer">
-        <a href="https://youtube.com" target="_blank" rel="noreferrer">Terms of use</a>
-        <a href="https://youtube.com" target="_blank" rel="noreferrer">Privacy policy</a>
-        <a href="https://youtube.com" target="_blank" rel="noreferrer">Policies &amp; Safety</a>
-      </div>
+      {/* Live Subscriber Count Modal */}
+      {showLiveCountModal && (
+        <div className="dash26-modal-backdrop" onClick={() => setShowLiveCountModal(false)}>
+          <div className="dash26-live-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dash26-live-modal-top">
+              <div className="dash26-live-chip">
+                <span className="dash26-live-dot" />
+                <span>Updating live</span>
+              </div>
+              <button
+                type="button"
+                className="dash26-circle-btn"
+                onClick={() => setShowLiveCountModal(false)}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <img
+              src={channelInfo?.avatar || '/channel-avatar.png'}
+              alt={channelInfo?.name}
+              className="dash26-live-avatar"
+            />
+            <p className="dash26-live-channel">{channelInfo?.name || 'Jesus Is The Lord'}</p>
+            <div className="dash26-live-number yt-display-font">
+              {liveSubCount.toLocaleString('en-IN')}
+            </div>
+            <p className="dash26-live-sub-caption">Subscribers</p>
+          </div>
+        </div>
+      )}
+
+      {showUploadModal && <UploadModal onClose={() => setShowUploadModal(false)} />}
     </div>
   );
-};
-
-export default Dashboard;
+}

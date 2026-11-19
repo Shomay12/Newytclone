@@ -1,414 +1,580 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { VIDEO_ID_TO_DATE, TITLE_TO_SCHEDULE_DATE, VIDEO_PUBLISH_SCHEDULE } from '../engine/AnalyticsSimulationEngine';
+import UploadModal from '../components/UploadModal';
+import {
+  formatCountComma,
+  formatPublishDate,
+  getVideoRevenueFormatted,
+} from './analytics/analyticsFormatters';
 import './Content.css';
 
-const TABS = [
-  'Inspiration',
-  'Videos',
-  'Shows',
-  'Shorts',
-  'Live',
-  'Posts',
-  'Playlists',
-  'Podcasts',
-  'Courses',
-  'Promotions',
-  'Collaborations'
+const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
+
+const CONTENT_TABS = [
+  { key: 'videos', label: 'Videos' },
+  { key: 'shows', label: 'Shows' },
+  { key: 'shorts', label: 'Shorts' },
+  { key: 'live', label: 'Live' },
+  { key: 'posts', label: 'Posts' },
+  { key: 'playlists', label: 'Playlists' },
+  { key: 'podcasts', label: 'Podcasts' },
+  { key: 'courses', label: 'Courses' },
+  { key: 'promotions', label: 'Promotions' },
+  { key: 'collaborations', label: 'Collaborations' },
+  { key: 'ideas', label: 'Ideas' },
 ];
 
-function formatContentDate(dStr) {
-  if (!dStr) return 'Aug 16, 2026';
-  if (/^[A-Za-z]{3}\s+\d{1,2},\s+\d{4}$/.test(dStr)) return dStr;
-  if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
-    const [y, m, d] = dStr.split('T')[0].split('-').map(Number);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      return `${months[m - 1]} ${d}, ${y}`;
-    }
-  }
-  const d = new Date(dStr);
-  if (isNaN(d.getTime())) return dStr;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatINR(val) {
-  if (val === undefined || val === null) return '₹0.00';
-  if (typeof val === 'string' && val.startsWith('₹')) return val;
-  const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.-]+/g, '')) : val;
-  if (isNaN(num)) return '₹0.00';
-  return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-const Content = () => {
-  const navigate = useNavigate();
+export default function Content() {
   const location = useLocation();
-  const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
-
-  const { 
-    videos, shorts, liveStreams, playlists, podcasts, 
-    deleteVideo, bulkDeleteVideos, bulkUpdateVisibility, showToast 
+  const navigate = useNavigate();
+  const {
+    videos = [],
+    shorts = [],
+    liveStreams = [],
+    playlists = [],
+    podcasts = [],
+    updateVideo,
+    deleteVideo,
+    showToast,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('Videos');
-  const [filterText, setFilterText] = useState('');
-  const [visibilityFilter, setVisibilityFilter] = useState('All');
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
-  useEffect(() => {
-    if (location.pathname.includes('/shorts')) setActiveTab('Shorts');
-    else if (location.pathname.includes('/live')) setActiveTab('Live');
-    else if (location.pathname.includes('/playlists')) setActiveTab('Playlists');
-    else if (location.pathname.includes('/podcasts')) setActiveTab('Podcasts');
-    else if (location.pathname.includes('/promotions')) setActiveTab('Promotions');
-    else if (location.pathname.includes('/inspiration')) setActiveTab('Inspiration');
-    else if (location.pathname.includes('/shows')) setActiveTab('Shows');
-    else if (location.pathname.includes('/posts')) setActiveTab('Posts');
-    else if (location.pathname.includes('/courses')) setActiveTab('Courses');
-    else if (location.pathname.includes('/collaborations')) setActiveTab('Collaborations');
-    else setActiveTab('Videos');
+  const pathTab = useMemo(() => {
+    const seg = location.pathname.split('/content/')[1]?.split('/')[0];
+    return CONTENT_TABS.some((t) => t.key === seg) ? seg : 'videos';
   }, [location.pathname]);
 
-  const handleTabChange = (tabName) => {
-    setActiveTab(tabName);
-    setSelectedIds([]);
-    setCurrentPage(1);
-    const slug = tabName.toLowerCase();
-    navigate(`${CHANNEL_PREFIX}/content/${slug}`);
-  };
+  const [filterText, setFilterText] = useState('');
+  const [visibilityFilter, setVisibilityFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [openVisMenuId, setOpenVisMenuId] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
-  useEffect(() => {
-    console.info('[Spreadsheet] Content Rendered', { videos: videos?.length || 0 });
-  }, [videos?.length]);
+  const activeRows = useMemo(() => {
+    let source = videos;
+    if (pathTab === 'shorts') source = shorts;
+    else if (pathTab === 'live') source = liveStreams;
 
-  // Determine current active dataset
-  let currentDataset = [];
-  if (activeTab === 'Videos' || activeTab === 'Shows' || activeTab === 'Courses' || activeTab === 'Inspiration' || activeTab === 'Promotions' || activeTab === 'Collaborations') currentDataset = videos;
-  else if (activeTab === 'Shorts') currentDataset = shorts;
-  else if (activeTab === 'Live') currentDataset = liveStreams;
-  else if (activeTab === 'Playlists') currentDataset = playlists;
-  else if (activeTab === 'Podcasts') currentDataset = podcasts;
-  else if (activeTab === 'Posts') currentDataset = [];
-
-  // Prioritize video's live publishDate from CRM/store or strict 4-day gap schedule
-  const normalizedDataset = currentDataset.map((item, idx) => {
-    const scheduledDate = TITLE_TO_SCHEDULE_DATE[item.title] || VIDEO_ID_TO_DATE[item.id] || (activeTab === 'Videos' && VIDEO_PUBLISH_SCHEDULE[idx]) || '2026-08-16';
-    const pubDate = item.publishDate || item.date || scheduledDate;
-
-    return {
-      ...item,
-      publishDate: pubDate,
-      date: pubDate,
-      sortOrder: item.sortOrder !== undefined ? item.sortOrder : idx + 1
-    };
-  });
-
-  // Sort strictly newest to oldest (descending by publishDate)
-  const sortedDataset = [...normalizedDataset].sort((a, b) => {
-    const dateA = a.publishDate || a.date || '';
-    const dateB = b.publishDate || b.date || '';
-    if (dateA && dateB && dateA !== dateB) {
-      return dateB.localeCompare(dateA); // Descending (Aug 16 first down to Jul 11 last)
+    let filtered = [...(source || [])];
+    if (filterText.trim()) {
+      const q = filterText.toLowerCase();
+      filtered = filtered.filter((item) => (item.title || '').toLowerCase().includes(q));
     }
-    return (a.sortOrder || 0) - (b.sortOrder || 0);
-  });
+    if (visibilityFilter !== 'all') {
+      filtered = filtered.filter(
+        (item) => (item.visibility || 'Public').toLowerCase() === visibilityFilter
+      );
+    }
 
-  // Apply filters
-  const filteredList = sortedDataset.filter(item => {
-    const matchesSearch = item.title?.toLowerCase().includes(filterText.toLowerCase()) || item.description?.toLowerCase().includes(filterText.toLowerCase());
-    const matchesVisibility = visibilityFilter === 'All' || item.visibility === visibilityFilter;
-    return matchesSearch && matchesVisibility;
-  });
+    filtered.sort((a, b) => {
+      if (sortBy === 'views') {
+        return sortDir === 'desc' ? (b.views || 0) - (a.views || 0) : (a.views || 0) - (b.views || 0);
+      }
+      if (sortBy === 'comments') {
+        const ca = a.comments ?? a.commentsCount ?? 0;
+        const cb = b.comments ?? b.commentsCount ?? 0;
+        return sortDir === 'desc' ? cb - ca : ca - cb;
+      }
+      const da = new Date(a.date || a.publishDate || a.publishedAt || '2026-01-01').getTime();
+      const db = new Date(b.date || b.publishDate || b.publishedAt || '2026-01-01').getTime();
+      return sortDir === 'desc' ? db - da : da - db;
+    });
 
-  // Pagination
-  const totalItems = filteredList.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const paginatedList = filteredList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    return filtered;
+  }, [pathTab, videos, shorts, liveStreams, filterText, visibilityFilter, sortBy, sortDir]);
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedList.map(item => item.id));
-    } else {
+  const allSelected =
+    activeRows.length > 0 && activeRows.every((r) => selectedIds.includes(r.id));
+
+  const toggleAll = () => {
+    if (allSelected) {
       setSelectedIds([]);
-    }
-  };
-
-  const handleSelectOne = (id) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(i => i !== id));
     } else {
-      setSelectedIds([...selectedIds, id]);
+      setSelectedIds(activeRows.map((r) => r.id));
     }
   };
 
-  const handleBulkDelete = () => {
-    if (window.confirm(`Delete ${selectedIds.length} selected items permanently?`)) {
-      bulkDeleteVideos(selectedIds);
-      setSelectedIds([]);
-      showToast(`${selectedIds.length} items deleted`, "success");
+  const toggleRow = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortBy(column);
+      setSortDir('desc');
     }
   };
 
-  const handleBulkVisibilityChange = (visibility) => {
-    bulkUpdateVisibility(selectedIds, visibility);
-    setSelectedIds([]);
-    showToast(`Updated visibility to ${visibility}`, "success");
+  const handleChangeVisibility = (id, vis) => {
+    setOpenVisMenuId(null);
+    if (typeof updateVideo === 'function') {
+      updateVideo(id, { visibility: vis });
+      if (typeof showToast === 'function') showToast(`Visibility updated to ${vis}`, 'success');
+    }
   };
 
-  const handleDeleteOne = (id, title) => {
-    if (window.confirm(`Delete "${title}"?`)) {
+  const handleDeleteRow = (id) => {
+    setOpenMenuId(null);
+    if (typeof deleteVideo === 'function') {
       deleteVideo(id);
-      showToast("Video deleted permanently", "success");
+      if (typeof showToast === 'function') showToast('Video deleted from studio', 'info');
     }
   };
 
-  const copyLink = (id) => {
-    navigator.clipboard?.writeText(`https://youtu.be/${id}`);
-    showToast("Link copied to clipboard", "info");
+  const renderVideoLikeTable = () => (
+    <div className="content26-table-wrap">
+      <table className="content26-table">
+        <thead>
+          <tr>
+            <th className="content26-col-check">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                aria-label="Select all"
+              />
+            </th>
+            <th className="content26-col-video">Video</th>
+            <th className="content26-col-notices">Notices</th>
+            <th className="content26-col-vis">Visibility</th>
+            <th
+              className="content26-col-date content26-sortable"
+              onClick={() => handleSort('date')}
+            >
+              <span>Date</span>
+              <span className="material-symbols-outlined content26-sort-arrow">
+                {sortBy === 'date' && sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+              </span>
+            </th>
+            <th
+              className="content26-col-num content26-sortable"
+              onClick={() => handleSort('views')}
+            >
+              <span>Views</span>
+              {sortBy === 'views' && (
+                <span className="material-symbols-outlined content26-sort-arrow">
+                  {sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                </span>
+              )}
+            </th>
+            <th className="content26-col-num">Est. revenue</th>
+            <th
+              className="content26-col-num content26-sortable"
+              onClick={() => handleSort('comments')}
+            >
+              <span>Comments</span>
+              {sortBy === 'comments' && (
+                <span className="material-symbols-outlined content26-sort-arrow">
+                  {sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                </span>
+              )}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {activeRows.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="content26-empty-td">
+                No {pathTab} match your filter.
+              </td>
+            </tr>
+          ) : (
+            activeRows.map((row) => {
+              const vis = row.visibility || 'Public';
+              const notices = row.restrictions || 'None';
+              const estRev = getVideoRevenueFormatted(row);
+              return (
+                <tr key={row.id} className="content26-row">
+                  <td className="content26-col-check">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(row.id)}
+                      onChange={() => toggleRow(row.id)}
+                      aria-label={`Select ${row.title}`}
+                    />
+                  </td>
+
+                  <td className="content26-col-video">
+                    <div className="content26-video-cell">
+                      <div
+                        className="content26-thumb-box"
+                        onClick={() => navigate(`${CHANNEL_PREFIX}/video/${row.id}/edit`)}
+                      >
+                        <img
+                          src={row.thumbnail || '/thumbnails/latest_video.png'}
+                          alt={row.title}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/thumbnails/latest_video.png';
+                          }}
+                        />
+                        {row.duration && (
+                          <span className="content26-duration-pill">{row.duration}</span>
+                        )}
+                      </div>
+
+                      <div className="content26-video-meta">
+                        <button
+                          type="button"
+                          className="content26-video-title"
+                          onClick={() => navigate(`${CHANNEL_PREFIX}/video/${row.id}/edit`)}
+                        >
+                          {row.title}
+                        </button>
+                        <p className="content26-video-desc">
+                          {row.description || 'Add description'}
+                        </p>
+
+                        {/* Hover Actions */}
+                        <div className="content26-hover-actions">
+                          <button
+                            type="button"
+                            title="Details"
+                            onClick={() => navigate(`${CHANNEL_PREFIX}/video/${row.id}/edit`)}
+                          >
+                            <span className="material-symbols-outlined">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            title="Insights"
+                            onClick={() =>
+                              navigate(`${CHANNEL_PREFIX}/video/${row.id}/analytics/hub_overview`)
+                            }
+                          >
+                            <span className="material-symbols-outlined">insert_chart</span>
+                          </button>
+                          <button
+                            type="button"
+                            title="Comments"
+                            onClick={() =>
+                              navigate(`${CHANNEL_PREFIX}/video/${row.id}/comments`)
+                            }
+                          >
+                            <span className="material-symbols-outlined">comment</span>
+                          </button>
+                          <button
+                            type="button"
+                            title="Monetization"
+                            onClick={() =>
+                              navigate(`${CHANNEL_PREFIX}/video/${row.id}/monetization`)
+                            }
+                          >
+                            <span className="material-symbols-outlined">monetization_on</span>
+                          </button>
+                          <div className="content26-row-menu-wrap">
+                            <button
+                              type="button"
+                              title="Options"
+                              onClick={() =>
+                                setOpenMenuId(openMenuId === row.id ? null : row.id)
+                              }
+                            >
+                              <span className="material-symbols-outlined">more_vert</span>
+                            </button>
+                            {openMenuId === row.id && (
+                              <div className="content26-popover-menu">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    navigate(`${CHANNEL_PREFIX}/video/${row.id}/edit`);
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined">edit</span> Edit title & details
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    navigate(`${CHANNEL_PREFIX}/video/${row.id}/analytics/hub_overview`);
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined">insert_chart</span> View video insights
+                                </button>
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  onClick={() => handleDeleteRow(row.id)}
+                                >
+                                  <span className="material-symbols-outlined">delete</span> Delete forever
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="content26-col-notices">
+                    <span className={notices === 'None' ? 'content26-muted' : 'content26-notice-badge'}>
+                      {notices === 'None' ? '—' : notices}
+                    </span>
+                  </td>
+
+                  <td className="content26-col-vis">
+                    <div className="content26-vis-wrap">
+                      <button
+                        type="button"
+                        className="content26-vis-btn"
+                        onClick={() =>
+                          setOpenVisMenuId(openVisMenuId === row.id ? null : row.id)
+                        }
+                      >
+                        <span className="material-symbols-outlined content26-vis-icon">
+                          {vis.toLowerCase() === 'public'
+                            ? 'public'
+                            : vis.toLowerCase() === 'unlisted'
+                            ? 'link'
+                            : 'lock'}
+                        </span>
+                        <span>{vis}</span>
+                        <span className="material-symbols-outlined content26-vis-caret">
+                          expand_more
+                        </span>
+                      </button>
+
+                      {openVisMenuId === row.id && (
+                        <div className="content26-popover-menu">
+                          {['Public', 'Unlisted', 'Private'].map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => handleChangeVisibility(row.id, opt)}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="content26-col-date">
+                    <div className="content26-date-cell">
+                      <span>{formatPublishDate(row)}</span>
+                      <span className="content26-sub-muted">Published</span>
+                    </div>
+                  </td>
+
+                  <td className="content26-col-num">{formatCountComma(row.views || 0)}</td>
+                  <td className="content26-col-num">{estRev}</td>
+                  <td className="content26-col-num">
+                    <button
+                      type="button"
+                      className="content26-comment-link"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${row.id}/comments`)}
+                    >
+                      {row.comments ?? row.commentsCount ?? 0}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderSpecialTab = () => {
+    if (pathTab === 'playlists' || pathTab === 'podcasts') {
+      const list = pathTab === 'podcasts' ? podcasts : playlists;
+      return (
+        <div className="content26-table-wrap">
+          <table className="content26-table">
+            <thead>
+              <tr>
+                <th className="content26-col-video">
+                  {pathTab === 'podcasts' ? 'Podcast' : 'Playlist'}
+                </th>
+                <th className="content26-col-vis">Visibility</th>
+                <th className="content26-col-date">Last updated</th>
+                <th className="content26-col-num">Videos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(list || []).length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="content26-empty-td">
+                    No {pathTab} found yet.
+                  </td>
+                </tr>
+              ) : (
+                list.map((p) => (
+                  <tr key={p.id} className="content26-row">
+                    <td className="content26-col-video">
+                      <div className="content26-video-cell">
+                        <div className="content26-thumb-box">
+                          <img
+                            src={p.thumbnail || '/thumbnails/latest_video.png'}
+                            alt={p.title}
+                          />
+                        </div>
+                        <div className="content26-video-meta">
+                          <span className="content26-video-title">{p.title}</span>
+                          <p className="content26-video-desc">{p.description || 'Public collection'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="content26-col-vis">{p.visibility || 'Public'}</td>
+                    <td className="content26-col-date">{p.lastUpdated || p.updatedAt || 'Nov 2026'}</td>
+                    <td className="content26-col-num">{p.videoCount ?? 0}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    const emptyCopy = {
+      shows: {
+        icon: 'tv',
+        title: 'Organize episodic video series',
+        sub: 'Group multi-part uploads into Shows so viewers binge seamlessly.',
+      },
+      posts: {
+        icon: 'post_add',
+        title: 'Share updates with your community',
+        sub: 'Run polls, share behind-the-scenes images, and spark conversations.',
+      },
+      courses: {
+        icon: 'school',
+        title: 'Create structured learning courses',
+        sub: 'Organize instructional videos into guided modules for learners.',
+      },
+      promotions: {
+        icon: 'campaign',
+        title: 'Promote your videos cleanly',
+        sub: 'Run channel growth campaigns for your key uploads directly inside Studio.',
+      },
+      collaborations: {
+        icon: 'group_add',
+        title: 'Track creator collaborations',
+        sub: 'Manage shared releases and co-authored channel spotlights.',
+      },
+      ideas: {
+        icon: 'lightbulb',
+        title: 'Capture your next video idea',
+        sub: 'Save title hooks, outline concepts, and inspiration notes in one place.',
+      },
+    }[pathTab] || {
+      icon: 'video_library',
+      title: `No ${pathTab} yet`,
+      sub: 'Content you create for this tab will show here.',
+    };
+
+    return (
+      <div className="content26-empty-state">
+        <div className="content26-empty-icon">
+          <span className="material-symbols-outlined">{emptyCopy.icon}</span>
+        </div>
+        <h3>{emptyCopy.title}</h3>
+        <p>{emptyCopy.sub}</p>
+        <button
+          type="button"
+          className="content26-pill-primary"
+          onClick={() => setShowUploadModal(true)}
+        >
+          Get started
+        </button>
+      </div>
+    );
   };
 
   return (
-    <div className="dashboard-container content-page">
-      <h1 className="dashboard-title">Channel content</h1>
-      
-      {/* Navigation Tabs */}
-      <div className="content-tabs">
-        {TABS.map(tab => (
-          <button 
-            key={tab} 
-            className={`content-tab-btn ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => handleTabChange(tab)}
-          >
-            {tab}
-          </button>
-        ))}
+    <div className="content26-page">
+      <div className="content26-header">
+        <h1 className="content26-title yt-display-font">Channel content</h1>
       </div>
 
-      {/* Bulk Action Bar OR Filter Bar */}
-      {selectedIds.length > 0 ? (
-        <div className="bulk-action-bar">
-          <span className="selected-count">{selectedIds.length} selected</span>
-          <div className="bulk-buttons">
-            <select 
-              className="bulk-select-dropdown" 
-              onChange={(e) => handleBulkVisibilityChange(e.target.value)}
-              defaultValue=""
+      {/* Horizontal Navigation Tabs */}
+      <div className="content26-tabs-bar" role="tablist">
+        {CONTENT_TABS.map((tab) => {
+          const isActive = pathTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`content26-tab ${isActive ? 'active' : ''}`}
+              onClick={() => navigate(`${CHANNEL_PREFIX}/content/${tab.key}`)}
             >
-              <option value="" disabled>Edit Visibility</option>
-              <option value="Public">Public</option>
-              <option value="Unlisted">Unlisted</option>
-              <option value="Private">Private</option>
-            </select>
-            <button className="bulk-delete-btn" onClick={handleBulkDelete}>
-              <span className="material-symbols-outlined">delete</span> Delete
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bulk Action Strip or Filter Bar */}
+      {selectedIds.length > 0 ? (
+        <div className="content26-bulk-bar">
+          <span className="content26-bulk-count">{selectedIds.length} selected</span>
+          <div className="content26-bulk-actions">
+            <button
+              type="button"
+              className="content26-pill-btn"
+              onClick={() =>
+                selectedIds.forEach((id) => handleChangeVisibility(id, 'Public'))
+              }
+            >
+              Set Public
+            </button>
+            <button
+              type="button"
+              className="content26-pill-btn"
+              onClick={() =>
+                selectedIds.forEach((id) => handleChangeVisibility(id, 'Private'))
+              }
+            >
+              Set Private
+            </button>
+            <button
+              type="button"
+              className="content26-pill-btn"
+              onClick={() => setSelectedIds([])}
+            >
+              Clear selection
             </button>
           </div>
         </div>
       ) : (
-        <div className="content-filters">
-          <div className="filter-search-box">
-            <span className="material-symbols-outlined filter-icon">filter_list</span>
-            <input 
-              type="text" 
-              placeholder="Filter" 
-              className="filter-input" 
-              value={filterText}
-              onChange={e => { setFilterText(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
+        <div className="content26-filter-bar">
+          <span className="material-symbols-outlined content26-filter-icon">filter_list</span>
+          <input
+            type="text"
+            className="content26-filter-input"
+            placeholder="Filter"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+          {visibilityFilter !== 'all' && (
+            <button
+              type="button"
+              className="content26-filter-chip"
+              onClick={() => setVisibilityFilter('all')}
+            >
+              Visibility: {visibilityFilter} ×
+            </button>
+          )}
         </div>
       )}
 
-      {/* Main Content Table */}
-      <div className="table-container">
-        {activeTab === 'Playlists' ? (
-          <table className="content-table">
-            <thead>
-              <tr>
-                <th className="video-col">Playlist</th>
-                <th>Visibility</th>
-                <th>Videos</th>
-                <th>Last updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedList.map(pl => (
-                <tr key={pl.id} className="video-row">
-                  <td className="video-col">
-                    <div className="video-cell">
-                      <span className="material-symbols-outlined pl-icon">playlist_play</span>
-                      <div className="video-info">
-                        <span className="video-title-link">{pl.title}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{pl.visibility}</td>
-                  <td>{pl.videoCount} videos</td>
-                  <td>{pl.lastUpdated}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : activeTab === 'Podcasts' ? (
-          <table className="content-table">
-            <thead>
-              <tr>
-                <th className="video-col">Podcast Show</th>
-                <th>Visibility</th>
-                <th>Episodes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedList.map(pod => (
-                <tr key={pod.id} className="video-row">
-                  <td className="video-col">
-                    <div className="video-cell">
-                      <span className="material-symbols-outlined pl-icon">podcasts</span>
-                      <div className="video-info">
-                        <span className="video-title-link">{pod.title}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{pod.visibility}</td>
-                  <td>{pod.episodes} episodes</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <table className="content-table">
-            <thead>
-              <tr>
-                <th className="checkbox-col">
-                  <input 
-                    type="checkbox" 
-                    onChange={handleSelectAll} 
-                    checked={paginatedList.length > 0 && paginatedList.every(i => selectedIds.includes(i.id))}
-                  />
-                </th>
-                <th className="video-col">Video</th>
-                <th>Notices</th>
-                <th>Visibility</th>
-                <th className="th-date">Date <span className="date-sort-arrow">↓</span></th>
-                <th style={{ textAlign: 'right' }}>Views</th>
-                <th style={{ textAlign: 'right' }}>Est. revenue</th>
-                <th style={{ textAlign: 'right' }}>Comments</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedList.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="no-content-cell">No items matching current filters.</td>
-                </tr>
-              ) : (
-                paginatedList.map(item => {
-                  const rev = item.revenue != null ? Number(item.revenue) : parseFloat((((Number(item.views) || 0) / 1000) * (Number(item.rpm) || 33.64)).toFixed(2));
-                  const commentsCount = item.comments != null ? Number(item.comments) : Math.round((Number(item.views) || 0) * 0.0034);
-                  const isUnlisted = item.visibility === 'Unlisted';
-                  const isPrivate = item.visibility === 'Private';
+      {pathTab === 'videos' || pathTab === 'shorts' || pathTab === 'live'
+        ? renderVideoLikeTable()
+        : renderSpecialTab()}
 
-                  return (
-                    <tr key={item.id} className="video-row">
-                      <td className="checkbox-col">
-                        <input 
-                          type="checkbox" 
-                          checked={selectedIds.includes(item.id)} 
-                          onChange={() => handleSelectOne(item.id)}
-                        />
-                      </td>
-                      <td className="video-col">
-                        <div className="video-cell">
-                          <div className="video-thumb-container" onClick={() => navigate(`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${item.id}`)}>
-                            <img src={item.thumbnail} alt={item.title} className="video-thumb-small" />
-                            {item.duration && <span className="video-duration-small">{item.duration}</span>}
-                          </div>
-                          <div className="video-info">
-                            <Link to={`/channel/UCqpdVWIzEQUcbf4pAxlneOQ/video/${item.id}`} className="video-title-link">{item.title}</Link>
-                            <p className="video-desc">{item.description ? item.description.substring(0, 95) + "..." : "No description"}</p>
-                            
-                            {/* Row Action Buttons on Hover */}
-                            <div className="hover-actions">
-                              <Link to={`${CHANNEL_PREFIX}/video/${item.id}`} title="Details">
-                                <span className="material-symbols-outlined">edit</span>
-                              </Link>
-                              <Link to={`${CHANNEL_PREFIX}/analytics/tab-overview/period-last-28-days?video=${item.id}`} title="Analytics">
-                                <span className="material-symbols-outlined">insert_chart</span>
-                              </Link>
-                              <Link to={`${CHANNEL_PREFIX}/community/comments`} title="Comments">
-                                <span className="material-symbols-outlined">chat_bubble_outline</span>
-                              </Link>
-                              <Link to={`${CHANNEL_PREFIX}/monetization/overview`} title="Monetization">
-                                <span className="material-symbols-outlined">monetization_on</span>
-                              </Link>
-                              <button title="Options" onClick={(e) => { e.stopPropagation(); copyLink(item.id); }}>
-                                <span className="material-symbols-outlined">more_vert</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="notices-cell">
-                        <span className="notices-dash">—</span>
-                      </td>
-                      <td>
-                        <div className="visibility-cell">
-                          <span className="material-symbols-outlined visibility-icon-yt">
-                            {isUnlisted ? 'link' : isPrivate ? 'lock' : 'public'}
-                          </span>
-                          <span>{item.visibility || 'Public'}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="date-cell">
-                          <span className="date-text">{formatContentDate(item.publishDate || item.date)}</span>
-                          <span className="date-sub">{isUnlisted ? 'Uploaded' : (item.status || 'Published')}</span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className="num-cell">{Number(item.views || 0).toLocaleString('en-IN')}</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className="num-cell">{formatINR(rev)}</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className="num-cell">{commentsCount.toLocaleString('en-IN')}</span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Pagination Footer */}
-      <div className="table-pagination">
-        <span className="pagination-info">
-          Rows per page: 10 • Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}
-        </span>
-        <div className="pagination-controls">
-          <button 
-            disabled={currentPage === 1} 
-            onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-          >
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
-          <span>Page {currentPage} of {totalPages}</span>
-          <button 
-            disabled={currentPage >= totalPages} 
-            onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-          >
-            <span className="material-symbols-outlined">chevron_right</span>
-          </button>
-        </div>
-      </div>
+      {showUploadModal && <UploadModal onClose={() => setShowUploadModal(false)} />}
     </div>
   );
-};
-
-export default Content;
-
+}

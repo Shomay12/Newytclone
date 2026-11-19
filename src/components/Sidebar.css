@@ -155,15 +155,22 @@
 
 .nav-icon {
   margin-right: 16px;
-  color: var(--icon-color);
+  color: #0f0f0f;
+  font-size: 20px;
 }
 
 .sidebar.collapsed .nav-icon {
   margin-right: 0;
 }
 
-.nav-item.active .active-icon {
-  color: var(--text-primary);
+.nav-item.active .active-icon,
+.nav-item.active .material-symbols-outlined.nav-icon {
+  color: #0f0f0f;
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
 }
 
 .nav-label {
@@ -180,4 +187,236 @@
 .bottom-menu {
   padding: 12px 0;
   border-top: 1px solid var(--border-color);
+}
+
+/* Mobile Drawer Overlay and Header */
+.sidebar-backdrop {
+  display: none;
+}
+
+.sidebar-mobile-header {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 2000;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    border-right: 1px solid var(--border-color);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 12px);
+  }
+
+  .sidebar.collapsed {
+    width: 280px;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+  }
+
+  .sidebar.mobile-open.collapsed {
+    transform: translateX(0);
+  }
+
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .sidebar-mobile-brand {
+    display: flex;
+    align-items: center;
+  }
+
+  .sidebar-mobile-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--text-primary);
+    cursor: pointer;
+    background: transparent;
+  }
+
+  .sidebar-mobile-close-btn:active {
+    background-color: var(--hover-bg);
+  }
+
+  .profile-section {
+    padding: 16px 12px 14px;
+  }
+
+  .channel-avatar {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 10px;
+  }
+}
+
+
+
+/* =========================================================
+   YouTube Studio 2026 Light Sidebar Overrides
+   ========================================================= */
+.sidebar {
+  width: 216px !important;
+  background: #ffffff !important;
+  border-right: none !important;
+}
+
+.sidebar .profile-section {
+  padding: 16px 16px 14px !important;
+  border-bottom: none !important;
+}
+
+.sidebar .profile-section .channel-avatar {
+  width: 104px !important;
+  height: 104px !important;
+  margin-bottom: 10px !important;
+}
+
+.sidebar .profile-section .channel-name {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #0f0f0f !important;
+  margin-bottom: 2px !important;
+}
+
+.sidebar .profile-section .channel-subtitle {
+  font-size: 11.5px !important;
+  color: #606060 !important;
+}
+
+.sidebar .nav-menu {
+  padding: 4px 10px 10px !important;
+  gap: 2px !important;
+}
+
+.sidebar .nav-item {
+  border-radius: 8px !important;
+  border-left: none !important;
+  height: 38px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  color: #0f0f0f !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  gap: 16px !important;
+  transition: background-color 0.12s ease !important;
+}
+
+.sidebar .nav-item:hover {
+  background: #f5f5f5 !important;
+}
+
+.sidebar .nav-item.active {
+  background: #f2f2f2 !important;
+  color: #0f0f0f !important;
+  border-left: none !important;
+  padding-left: 12px !important;
+}
+
+.sidebar .nav-item .nav-icon,
+.sidebar .nav-item .material-symbols-outlined {
+  margin-right: 0 !important;
+  font-size: 20px !important;
+  color: #0f0f0f !important;
+}
+
+.sidebar .nav-item.active .nav-icon,
+.sidebar .nav-item.active .material-symbols-outlined {
+  color: #0f0f0f !important;
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+.sidebar .nav-item.active .nav-label {
+  color: #0f0f0f !important;
+  font-weight: 500 !important;
+}
+
+.sidebar .bottom-menu {
+  padding: 6px 10px 12px !important;
+  border-top: none !important;
+}
+
+.sidebar .back-to-content-btn {
+  color: #0f0f0f !important;
+  font-weight: 500 !important;
+  font-size: 13.5px !important;
+  padding: 8px 10px !important;
+  margin-bottom: 10px !important;
+  border-radius: 8px !important;
+  width: 100%;
+}
+
+.sidebar .back-to-content-btn:hover {
+  background: #f2f2f2 !important;
+  color: #0f0f0f !important;
+}
+
+.sidebar .video-thumb-wrapper {
+  border-radius: 8px !important;
+  overflow: hidden;
+  border: none !important;
+  margin-bottom: 10px !important;
+}
+
+.sidebar .video-card-thumb {
+  border-radius: 8px !important;
+}
+
+.sidebar .video-card-tag {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: #0f0f0f !important;
+  margin-top: 0 !important;
+  margin-bottom: 2px !important;
+}
+
+.sidebar .video-card-title {
+  font-size: 11.5px !important;
+  font-weight: 400 !important;
+  color: #606060 !important;
+  line-height: 1.35 !important;
+  -webkit-line-clamp: 1 !important;
+}
+
+.sidebar.collapsed {
+  width: 72px !important;
+}
+
+.sidebar.collapsed .nav-menu {
+  padding: 4px 8px !important;
 }

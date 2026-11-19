@@ -78,3 +78,22 @@
 .placeholder-box span {
   font-size: 48px;
 }
+
+@media (max-width: 768px) {
+  .customization-page {
+    padding-inline: 8px;
+    padding-bottom: 72px;
+  }
+
+  .branding-section {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .branding-preview {
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+

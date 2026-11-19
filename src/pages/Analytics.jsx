@@ -1,2405 +1,2907 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useStore, formatINR, fmtV, fmtW, fmtS } from '../store/useStore';
-import { formatDateRangeText, formatSingleDate, VIDEO_ID_TO_DATE, TITLE_TO_SCHEDULE_DATE } from '../engine/AnalyticsSimulationEngine';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useStore, fmtV, formatINR } from '../store/useStore';
+import { StudioUpBadge, StudioDownBadge, StudioCheckBadge } from '../components/StudioBadges';
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceDot
-} from 'recharts';
-import { StudioCheckBadge, StudioUpBadge, StudioDownBadge } from '../components/StudioBadges';
+  AskSparkleIcon,
+  AiReportIcon,
+  HubContentIcon,
+  HubAudienceIcon,
+  HubRevenueIcon,
+  HubResearchIcon,
+  HubReachIcon,
+  HubEngagementIcon,
+} from '../components/StudioIcons';
+import { openAskStudio } from '../components/AskStudioDrawer';
+import {
+  formatCompactINR,
+  formatCountComma,
+  formatHoursValue,
+  formatPctValue,
+  formatPublishDate,
+  getVideoRevenueFormatted,
+  getVideoRevenueValue,
+} from './analytics/analyticsFormatters';
+import {
+  StudioLineMetricChart,
+  MiniSparklineChart,
+  Realtime48hBarChart,
+  StudioProgressList,
+  SegmentedStatList,
+  AudienceHeatmapGrid,
+  ReachFunnelCard,
+  NotificationFunnelCard,
+  RetentionCurveChart,
+} from './analytics/HubCharts';
+import ResearchHub from './analytics/ResearchHub';
+import AdvancedModeView from './analytics/AdvancedModeView';
 import './Analytics.css';
 
-const StudioCard = ({ title, subtitle, infoIcon, children, className = '', headerExtra = null }) => (
-  <section className={`studio-analytics-card ${className}`}>
-    {(title || subtitle || headerExtra) && (
-      <div className="studio-card-header">
-        <div>
-          {title && (
-            <h3>
-              {title} {infoIcon && <span className="material-symbols-outlined card-info-icon" title="More info">info</span>}
-            </h3>
-          )}
-          {subtitle && <p className="studio-card-subtitle">{subtitle}</p>}
-        </div>
-        {headerExtra}
-      </div>
-    )}
-    {children}
-  </section>
-);
+const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
 
-const FormatDistributionRow = ({ label, value, formattedValue, maxVal = 100, barColor = '#a855f7' }) => {
-  const numericVal = typeof value === 'number' ? value : parseFloat(value) || 0;
-  const pct = maxVal > 0 ? Math.min(100, Math.max(0, (numericVal / maxVal) * 100)) : 0;
-  return (
-    <div className="format-dist-row">
-      <span className="dist-label">{label}</span>
-      <div className="dist-bar-track">
-        <div className="dist-bar-fill" style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: barColor }} />
-      </div>
-      <span className="dist-value-text">{formattedValue || value}</span>
-    </div>
-  );
-};
-
-const Analytics = () => {
-  const { id } = useParams();
+export default function Analytics() {
+  const { id: routeVideoId } = useParams();
+  const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
 
   const {
-    videos,
     channelInfo,
-    simulationAnchorDate,
-    customStartDate,
-    customEndDate,
-    dateRangeVersion,
+    videos = [],
+    playlists = [],
     selectedDateRange,
+    dateRangeVersion: _dateRangeVersion,
+    customStartDate: _customStartDate,
+    customEndDate: _customEndDate,
     setDateRange,
-    graphSettings,
     getAnalyticsForRange,
     realtimeDataset,
-    tickRealtime
+    tickRealtime,
+    showToast,
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('Overview');
+  const activeVideoId = routeVideoId || searchParams.get('video') || null;
+  const currentVideo = useMemo(() => {
+    if (!activeVideoId) return null;
+    return videos.find((v) => v.id === activeVideoId) || videos[0] || null;
+  }, [activeVideoId, videos]);
 
-  // Derive video context BEFORE the useEffect that depends on isVideoMode
-  const searchParams = new URLSearchParams(location.search);
-  const videoIdFromQuery = searchParams.get('video') || searchParams.get('v');
-  const targetVideoId = id || videoIdFromQuery;
-  const video = targetVideoId ? videos.find(v => v.id === targetVideoId || String(v.id).toLowerCase() === String(targetVideoId).toLowerCase()) : null;
-  const isVideoMode = Boolean(video);
-  const currentVideo = video || videos[0] || {};
+  const isVideoMode = Boolean(currentVideo);
+  const analyticsBasePath = isVideoMode
+    ? `${CHANNEL_PREFIX}/video/${currentVideo.id}/analytics`
+    : `${CHANNEL_PREFIX}/analytics`;
 
-  useEffect(() => {
-    const path = location.pathname;
-    if (path.includes('tab-reach') || path.includes('tab-content')) setActiveTab(isVideoMode ? 'Reach' : 'Content');
-    else if (path.includes('tab-engagement')) setActiveTab('Engagement');
-    else if (path.includes('tab-audience')) setActiveTab('Audience');
-    else if (path.includes('tab-revenue')) setActiveTab('Revenue');
-    else if (path.includes('tab-trends')) setActiveTab('Trends');
-    else if (path.includes('tab-overview')) setActiveTab('Overview');
-  }, [location.pathname, isVideoMode]);
+  const hubMode = useMemo(() => {
+    const p = location.pathname.toLowerCase();
+    if (p.includes('explore') || p.includes('advanced')) return 'explore';
+    if (p.includes('hub_reach')) return 'hub_reach';
+    if (p.includes('hub_engagement')) return 'hub_engagement';
+    if (p.includes('hub_content') || p.includes('tab-content')) return 'hub_content';
+    if (p.includes('hub_audience') || p.includes('tab-audience')) return 'hub_audience';
+    if (p.includes('hub_revenue') || p.includes('tab-revenue')) return 'hub_revenue';
+    if (p.includes('hub_research') || p.includes('tab-trends')) return 'hub_research';
+    return 'hub_overview';
+  }, [location.pathname]);
 
-  const handleTabChange = (tabName) => {
-    setActiveTab(tabName);
-    const slug = `tab-${tabName.toLowerCase()}`;
-    const search = location.search ? location.search : '';
-    navigate(`${CHANNEL_PREFIX}/analytics/${slug}/period-last-28-days${search}`);
-  };
-  const [selectedMetric, setSelectedMetric] = useState('views');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [contentSubTab, setContentSubTab] = useState('All');
-  const [revenueSubTab, setRevenueSubTab] = useState('All');
-  const [audienceFormatFilter, setAudienceFormatFilter] = useState('Videos · Shorts');
-  const [audiencePopularFilter, setAudiencePopularFilter] = useState('New');
-  const [ageGenderFilter, setAgeGenderFilter] = useState('All');
-  const [topGeographiesFilter, setTopGeographiesFilter] = useState('All');
-  const [revenueMakeMoneyFilter, setRevenueMakeMoneyFilter] = useState('All');
-  const [revenueContentFilter, setRevenueContentFilter] = useState('Videos');
-  const [deviceTypeFilter, setDeviceTypeFilter] = useState('All');
-  const [isNoticeDismissed, setIsNoticeDismissed] = useState(false);
+  const [heroMetric, setHeroMetric] = useState('views');
+  const [contentFormatTab, setContentFormatTab] = useState('all');
+  const [retentionMomentTab, setRetentionMomentTab] = useState('intro');
+  const [trafficFilterTab, setTrafficFilterTab] = useState('overall');
+  const [popularAudTab, setPopularAudTab] = useState('new');
+  const [deviceFilterTab, setDeviceFilterTab] = useState('all');
+  const [demoGeoTab, setDemoGeoTab] = useState('all');
+  const [demoAgeTab, setDemoAgeTab] = useState('all');
+  const [demoGenderTab, setDemoGenderTab] = useState('all');
+  const [otherWatchTab, setOtherWatchTab] = useState('all');
+  const [revTab, setRevTab] = useState('all');
+  const [topEarnFilter, setTopEarnFilter] = useState('all');
+  const [waysFilter, setWaysFilter] = useState('all');
+  const [contentEarnTab, setContentEarnTab] = useState('videos');
+  const [showMorePeriods, setShowMorePeriods] = useState(false);
+  const [aiThumbVote, setAiThumbVote] = useState(null);
 
-  // Continuous Realtime Ticker Interval
   useEffect(() => {
     const timer = setInterval(() => {
-      tickRealtime();
-    }, 5000);
+      if (typeof tickRealtime === 'function') tickRealtime();
+    }, 6000);
     return () => clearInterval(timer);
   }, [tickRealtime]);
 
-  // Compute analytics dynamically based on selected date range & video from Excel data
-  // videos, channelInfo, graphSettings and dateRangeVersion are deps so CRM updates instantly re-compute all charts & metric cards
-  const computedData = useMemo(() => {
-    return getAnalyticsForRange(selectedDateRange, isVideoMode ? currentVideo.id : null);
-  }, [
-    selectedDateRange,
-    isVideoMode,
-    currentVideo.id,
-    simulationAnchorDate,
-    customStartDate,
-    customEndDate,
-    dateRangeVersion,
-    getAnalyticsForRange,
-    videos,
-    channelInfo,
-    graphSettings
-  ]);
+  const rangeKey = selectedDateRange || 'lifetime';
+  const snapshot = getAnalyticsForRange(rangeKey, currentVideo?.id || null);
 
-  const { daily, aggregated, trafficSources, audience, dateRangeLabel } = computedData;
+  const agg = snapshot?.aggregated || {};
+  const rawDaily = useMemo(() => snapshot?.daily || [], [snapshot?.daily]);
 
-  // Enhance daily data with typical range simulation & slight upward incline for 7 days / monthly date ranges
-  const dailyWithTypical = useMemo(() => {
-    if (selectedDateRange === 'first24') {
-      const points = [];
-      const totalV = aggregated?.views || 10400;
-      const totalW = aggregated?.watchTimeHrs || 335.2;
-      const totalR = aggregated?.revenue || 711.08;
-      const totalS = aggregated?.subscribersNet || 33;
+  const buildMetricSeries = useCallback((metricName) => {
+    const pickVal = (d) => {
+      if (metricName === 'watchTimeHrs') return Number(d.watchTimeHrs ?? d.watchTimeHours ?? d.watchTime ?? 0);
+      if (metricName === 'subscribers') return Number(d.subscribersNet ?? d.subscribers ?? d.subs ?? 0);
+      if (metricName === 'revenue') return Number(d.revenue ?? d.estimatedRevenue ?? 0);
+      if (metricName === 'impressions') return Number(d.impressions ?? Math.round((d.views || 0) * 14));
+      if (metricName === 'ctr') return Number(d.ctr ?? 6.4);
+      if (metricName === 'unique') return Math.round(Number(d.views ?? 0) * 0.72);
+      return Number(d.views ?? 0);
+    };
+    const avg =
+      rawDaily.length > 0
+        ? rawDaily.reduce((acc, d) => acc + pickVal(d), 0) / rawDaily.length
+        : 0;
 
-      for (let h = 0; h <= 24; h++) {
-        const progress = h / 24;
-        const factor = Math.pow(progress, 1.4);
-        const vVal = Math.round(totalV * factor);
-        const wVal = parseFloat((totalW * factor).toFixed(1));
-        const rVal = parseFloat((totalR * factor).toFixed(2));
-        const sVal = Math.round(totalS * factor);
-
-        let dateLabel = `${h}`;
-        if (h === 24) dateLabel = '24 hours';
-
-        const metricMap = {
-          views: vVal,
-          watchTimeHrs: wVal,
-          revenue: rVal,
-          subscribersNet: sVal,
-          impressions: Math.round(vVal * 12.5),
-          ctr: 8.9,
-          avgViewDuration: '1:45'
-        };
-
-        const activeVal = metricMap[selectedMetric] ?? vVal;
-        const typicalUpper = Math.round(activeVal * 0.72);
-
-        points.push({
-          date: dateLabel,
-          hour: h,
-          views: vVal,
-          watchTimeHrs: wVal,
-          revenue: rVal,
-          subscribersNet: sVal,
-          [selectedMetric]: activeVal,
-          typicalLower: Math.round(typicalUpper * 0.6),
-          typicalUpper: typicalUpper,
-          revenueTypicalUpper: Math.round(rVal * 0.75)
-        });
-      }
-      return points;
-    }
-
-    const list = daily || [];
-    const n = list.length;
-    if (n === 0) return [];
-
-    const videoPubDate = isVideoMode
-      ? (currentVideo?.publishDate || currentVideo?.date || '2026-08-16')
-      : null;
-
-    const nonZeroItems = list.filter(item => Number(item.views) > 0);
-    const avgVal = nonZeroItems.reduce((acc, item) => acc + (Number(item[selectedMetric]) || Number(item.views) || 0), 0) / (nonZeroItems.length || 1);
-    const avgRev = nonZeroItems.reduce((acc, item) => acc + (Number(item.revenue) || 0), 0) / (nonZeroItems.length || 1);
-
-    return list.map((item) => {
-      const isBeforePublish = isVideoMode && videoPubDate && item.date && (item.date < videoPubDate);
-      const isZero = isBeforePublish || (Number(item.views) === 0);
-
-      if (isZero) {
-        return {
-          ...item,
-          views: 0,
-          watchTimeHrs: 0,
-          revenue: 0,
-          subscribersNet: 0,
-          impressions: 0,
-          [selectedMetric]: 0,
-          typicalLower: 0,
-          typicalUpper: 0,
-          revenueTypicalUpper: 0
-        };
-      }
-
-      const rawVal = item[selectedMetric] !== undefined ? item[selectedMetric] : (item.views || 0);
-      const val = typeof rawVal === 'number' ? rawVal : Number(rawVal) || 0;
-      const views = Number(item.views) || 0;
-      const watchTimeHrs = Number(item.watchTimeHrs) || 0;
-      const revenue = Number(item.revenue) || 0;
-      const subscribersNet = Number(item.subscribersNet) || 0;
-
-      // Smooth historical envelope baseline (typical corridor)
-      const typicalUpper = Math.round(avgVal * 1.30);
-      const typicalLower = Math.round(avgVal * 0.70);
-
+    return rawDaily.map((d, idx) => {
+      const rawLabel = d.label || d.dateLabel || d.shortDate || d.date || `D${idx + 1}`;
+      const label = /^\d{4}-\d{2}-\d{2}/.test(String(rawLabel))
+        ? formatPublishDate(rawLabel)
+        : rawLabel;
+      const rawFull = d.fullDate || d.date || rawLabel;
+      const fullDate = /^\d{4}-\d{2}-\d{2}/.test(String(rawFull))
+        ? formatPublishDate(rawFull)
+        : rawFull;
       return {
-        ...item,
-        views,
-        watchTimeHrs,
-        revenue,
-        subscribersNet,
-        [selectedMetric]: val,
-        typicalLower,
-        typicalUpper,
-        revenueTypicalUpper: Math.round(avgRev * 1.25)
+        label,
+        fullDate,
+        value: pickVal(d),
+        typical: Math.round(avg * (0.9 + Math.sin(idx * 0.3) * 0.08)),
       };
     });
-  }, [daily, selectedMetric, selectedDateRange, isVideoMode, aggregated, videos, video, currentVideo]);
+  }, [rawDaily]);
 
-  // Compute video upload marker points present within the rendered chart range
-  const videoUploadPoints = useMemo(() => {
-    if (isVideoMode) return [];
-    if (selectedDateRange === 'lifetime') {
+  const heroChartData = useMemo(
+    () => buildMetricSeries(heroMetric),
+    [buildMetricSeries, heroMetric]
+  );
+
+  const searchTermItems = useMemo(() => {
+    const words = (currentVideo?.title || videos[0]?.title || 'ai website video')
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .slice(0, 4);
+    const channelTerm = (channelInfo?.name || 'channel').toLowerCase();
+    const terms =
+      words.length >= 2
+        ? [
+            channelTerm,
+            `${words[0].toLowerCase()} ${words[1].toLowerCase()}`,
+            `how to ${words[0].toLowerCase()}`,
+            `#${words[0].toLowerCase()}`,
+            words[0].toLowerCase(),
+          ]
+        : [channelTerm, 'ai video', 'tutorial', '#ai', 'guide'];
+    const weights = [16.8, 3.4, 2.2, 1.1, 1.1];
+    return terms.map((label, i) => ({
+      label,
+      pct: weights[i],
+      display: `${weights[i]}%`,
+      viewsDisplay: fmtV(Math.round(((agg.views || 0) * weights[i]) / 100)),
+    }));
+  }, [currentVideo?.title, videos, channelInfo?.name, agg.views]);
+
+  const overallTrafficItems = useMemo(() => {
+    const raw = snapshot?.trafficSources || [];
+    if (raw.length > 0) {
+      return raw.slice(0, 5).map((s) => {
+        const pct = Number(s.percentage ?? s.share ?? 0);
+        return {
+          label: s.source || s.name || s.label || 'Browse features',
+          pct,
+          display: `${pct.toFixed(1)}%`,
+          viewsDisplay: fmtV(Math.round(((agg.views || 0) * pct) / 100)),
+        };
+      });
+    }
+    return [
+      { label: 'Browse features', pct: 58.6, display: '58.6%', viewsDisplay: fmtV((agg.views || 0) * 0.586) },
+      { label: 'YouTube search', pct: 23.0, display: '23.0%', viewsDisplay: fmtV((agg.views || 0) * 0.23) },
+      { label: 'Suggested videos', pct: 9.8, display: '9.8%', viewsDisplay: fmtV((agg.views || 0) * 0.098) },
+      { label: 'Other YouTube features', pct: 4.5, display: '4.5%', viewsDisplay: fmtV((agg.views || 0) * 0.045) },
+      { label: 'Channel pages', pct: 1.9, display: '1.9%', viewsDisplay: fmtV((agg.views || 0) * 0.019) },
+    ];
+  }, [snapshot?.trafficSources, agg.views]);
+
+  const trafficItems = useMemo(() => {
+    if (trafficFilterTab === 'external') {
       return [
-        { date: '2026-08-25', count: 10, title: '9+ uploads', id: 'lifetime_marker_1' },
-        { date: '2026-09-28', count: 10, title: '9+ uploads', id: 'lifetime_marker_2' }
+        { label: 'Google Search', pct: 44.2, display: '44.2%', viewsDisplay: fmtV((agg.views || 0) * 0.022) },
+        { label: 'Instagram', pct: 28.4, display: '28.4%', viewsDisplay: fmtV((agg.views || 0) * 0.014) },
+        { label: 'Facebook', pct: 16.5, display: '16.5%', viewsDisplay: fmtV((agg.views || 0) * 0.008) },
+        { label: 'Pinterest', pct: 10.9, display: '10.9%', viewsDisplay: fmtV((agg.views || 0) * 0.005) },
       ];
     }
-    if (!dailyWithTypical || dailyWithTypical.length === 0) return [];
-    const dateSet = new Set(dailyWithTypical.map(d => d.date));
-    const map = new Map();
-    (videos || []).forEach(v => {
-      const pubDate = v.publishDate || v.date;
-      if (pubDate && dateSet.has(pubDate)) {
-        if (!map.has(pubDate)) {
-          map.set(pubDate, []);
-        }
-        map.get(pubDate).push(v);
+    if (trafficFilterTab === 'search') {
+      return searchTermItems;
+    }
+    if (trafficFilterTab === 'suggested') {
+      const weights = [31.2, 24.5, 18.8, 14.1, 11.4];
+      return videos.slice(0, 5).map((v, i) => ({
+        label: v.title,
+        pct: weights[i] || 10,
+        display: `${weights[i] || 10}%`,
+      }));
+    }
+    if (trafficFilterTab === 'playlists') {
+      if (playlists.length > 0) {
+        const totalPl = playlists.length;
+        return playlists.slice(0, 5).map((p, i) => {
+          const pct = Number((Math.max(12, 65 - i * 18) / Math.max(1, totalPl * 0.6)).toFixed(1));
+          return { label: p.title, pct: Math.min(100, pct), display: `${Math.min(100, pct)}%` };
+        });
       }
+      return [{ label: 'All uploads playlist', pct: 100, display: '100.0%' }];
+    }
+    return overallTrafficItems;
+  }, [trafficFilterTab, overallTrafficItems, searchTermItems, videos, playlists, agg.views]);
+
+  const geoItems = useMemo(() => {
+    const raw = snapshot?.audience?.geographies || [];
+    const base =
+      raw.length > 0
+        ? raw.slice(0, 5).map((g) => ({
+            label: g.country || g.name || 'United States',
+            pct: Number(g.percentage ?? g.share ?? 0),
+          }))
+        : [
+            { label: 'United States', pct: 42.5 },
+            { label: 'Canada', pct: 14.2 },
+            { label: 'United Kingdom', pct: 12.8 },
+            { label: 'Australia', pct: 9.5 },
+            { label: 'Germany', pct: 8.4 },
+          ];
+    const mult =
+      demoGeoTab === 'shorts' ? 0.92 : demoGeoTab === 'live' ? 0.88 : demoGeoTab === 'videos' ? 1.0 : 1.0;
+    return base.map((item, idx) => {
+      const pct = Number(Math.max(0.2, Math.min(99, idx === 0 ? item.pct * mult : item.pct * (2 - mult))).toFixed(1));
+      return { label: item.label, pct, display: `${pct.toFixed(1)}%` };
     });
-    const points = [];
-    map.forEach((vids, pubDate) => {
-      points.push({
-        date: pubDate,
-        count: vids.length,
-        title: vids.map(v => v.title).join(', '),
-        id: vids[0].id
+  }, [snapshot?.audience?.geographies, demoGeoTab]);
+
+  const ageItems = useMemo(() => {
+    const raw = snapshot?.audience?.ageGender || [];
+    const base =
+      raw.length > 0
+        ? raw.slice(0, 7).map((a) => ({
+            label: a.group || a.age || '25–34 years',
+            pct: Number(a.percentage ?? a.total ?? 0),
+          }))
+        : [
+            { label: '13–17 years', pct: 2.8 },
+            { label: '18–24 years', pct: 27.2 },
+            { label: '25–34 years', pct: 45.0 },
+            { label: '35–44 years', pct: 18.9 },
+            { label: '45–54 years', pct: 4.8 },
+            { label: '55–64 years', pct: 1.0 },
+            { label: '65+ years', pct: 0.3 },
+          ];
+    return base.map((item, idx) => {
+      const adj =
+        demoAgeTab === 'shorts'
+          ? idx <= 1
+            ? 1.25
+            : 0.92
+          : demoAgeTab === 'videos'
+          ? idx >= 2 && idx <= 4
+            ? 1.04
+            : 0.96
+          : 1;
+      const pct = Number(Math.max(0.1, Math.min(80, item.pct * adj)).toFixed(1));
+      return { label: item.label, pct, display: `${pct.toFixed(1)}%` };
+    });
+  }, [snapshot?.audience?.ageGender, demoAgeTab]);
+
+  const genderItems = useMemo(() => {
+    const shift = demoGenderTab === 'shorts' ? 4.2 : demoGenderTab === 'videos' ? 0.4 : 0;
+    const female = Number((10.3 + shift).toFixed(1));
+    const male = Number((100 - female).toFixed(1));
+    return [
+      { label: 'Female', pct: female, display: `${female.toFixed(1)}%` },
+      { label: 'Male', pct: male, display: `${male.toFixed(1)}%` },
+      { label: 'User specified', pct: 0.0, display: '0.0%' },
+    ];
+  }, [demoGenderTab]);
+
+  const languageItems = useMemo(() => {
+    const raw = snapshot?.audience?.subtitleLanguages || [];
+    if (raw.length > 0) {
+      return raw.slice(0, 5).map((l) => {
+        const pct = Number(l.percentage ?? l.share ?? 0);
+        return { label: l.language || l.name || 'No subtitles/CC', pct, display: `${pct.toFixed(1)}%` };
       });
-    });
-    return points;
-  }, [isVideoMode, selectedDateRange, dailyWithTypical, videos]);
-
-  // Calculate dynamic Y-axis domain for Revenue chart with 5-10% padding
-  const revenueDomain = useMemo(() => {
-    if (!daily || daily.length === 0) return [0, 'auto'];
-    const revValues = daily.map(d => Number(d.revenue) || 0);
-    if (revValues.length === 0) return [0, 'auto'];
-    const minRev = Math.min(...revValues);
-    const maxRev = Math.max(...revValues);
-    const diff = maxRev - minRev;
-    const padding = diff > 0 ? diff * 0.1 : maxRev * 0.1;
-    const step = Math.pow(10, Math.floor(Math.log10(maxRev || 100))) / 10;
-    const roundStep = step > 0 ? step : 50;
-    const lower = Math.max(0, Math.floor((minRev - padding) / roundStep) * roundStep);
-    const upper = Math.ceil((maxRev + padding) / roundStep) * roundStep;
-    return [lower, upper];
-  }, [daily]);
-
-  // Compute exactly 7 evenly spaced tick dates from day start (index 0) to day end (index len - 1)
-  const chartTicks = useMemo(() => {
-    if (selectedDateRange === 'first24') {
-      return ['0', '4', '8', '12', '16', '20', '24 hours'];
     }
-    if (selectedDateRange === 'lifetime' && !isVideoMode) {
-      return ['2023-02-11', '2023-09-11', '2024-04-10', '2024-11-09', '2025-06-09', '2026-01-07', '2026-11-13'];
-    }
-    if (!dailyWithTypical || dailyWithTypical.length === 0) return undefined;
-    const len = dailyWithTypical.length;
-    if (len <= 7) return dailyWithTypical.map(d => d.date);
+    return [
+      { label: 'No subtitles/CC', pct: 73.6, display: '73.6%' },
+      { label: 'English (United States)', pct: 18.4, display: '18.4%' },
+      { label: 'Spanish', pct: 4.2, display: '4.2%' },
+      { label: 'French', pct: 2.4, display: '2.4%' },
+      { label: 'German', pct: 1.4, display: '1.4%' },
+    ];
+  }, [snapshot?.audience?.subtitleLanguages]);
 
-    const ticks = [];
-    const count = 7;
-    for (let i = 0; i < count; i++) {
-      const idx = Math.round((i * (len - 1)) / (count - 1));
-      if (dailyWithTypical[idx] && dailyWithTypical[idx].date) {
-        ticks.push(dailyWithTypical[idx].date);
+  const viewerLoyaltySegments = useMemo(
+    () =>
+      isVideoMode
+        ? [
+            { label: 'New viewers', pct: 10, display: '10%' },
+            { label: 'Casual viewers', pct: 51, display: '51%' },
+            { label: 'Regular viewers', pct: 38, display: '38%' },
+          ]
+        : [
+            { label: 'New viewers', pct: 79.2, display: '79.2%' },
+            { label: 'Casual viewers', pct: 18.8, display: '18.8%' },
+            { label: 'Regular viewers', pct: 2.0, display: '2.0%' },
+          ],
+    [isVideoMode]
+  );
+
+  const rtTotal48h = useMemo(() => {
+    if (isVideoMode) {
+      if (currentVideo?.realtimeViews48h !== undefined && currentVideo?.realtimeViews48h !== null) {
+        return Number(currentVideo.realtimeViews48h);
       }
+      return currentVideo?.views ? Math.round(Number(currentVideo.views) * 0.0055) : 0;
     }
-    return ticks;
-  }, [dailyWithTypical, selectedDateRange, isVideoMode]);
-
-  const formatXAxisDate = (dateStr) => {
-    if (!dateStr || typeof dateStr !== 'string') return dateStr;
-    if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
-
-    const parts = dateStr.split('-');
-    let dateObj;
-    if (parts.length === 3) {
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      dateObj = new Date(year, month, day);
-    } else {
-      dateObj = new Date(dateStr);
+    if (channelInfo?.realtimeViews48h !== undefined && channelInfo?.realtimeViews48h !== null) {
+      return Number(channelInfo.realtimeViews48h);
     }
-
-    if (isNaN(dateObj.getTime())) return dateStr;
-
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    const month = monthNames[dateObj.getMonth()];
-    const day = dateObj.getDate();
-    const year = dateObj.getFullYear();
-    return `${day} ${month} ${year}`;
-  };
-
-  const formatXAxisTick = (dateStr) => {
-    if (!dateStr || typeof dateStr !== 'string') return '';
-    if (dateStr.includes('hours') || dateStr === '0' || dateStr === '4' || dateStr === '8' || dateStr === '12' || dateStr === '16' || dateStr === '20' || dateStr === '24') return dateStr;
-    if (selectedDateRange === 'lifetime') {
-      if (dateStr === '2023-02-11') return '11 Feb ...';
-      if (dateStr === '2023-09-11') return '11 Sept 2023';
-      if (dateStr === '2024-04-10') return '10 Apr 2024';
-      if (dateStr === '2024-11-09') return '9 Nov 2024';
-      if (dateStr === '2025-06-09') return '9 Jun 2025';
-      if (dateStr === '2026-01-07') return '7 Jan 2026';
-      if (dateStr === '2026-11-13') return '13 Nov 2026';
-    }
-    if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
-
-    const parts = dateStr.split('-');
-    let dateObj;
-    if (parts.length === 3) {
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      dateObj = new Date(year, month, day);
-    } else {
-      dateObj = new Date(dateStr);
-    }
-
-    if (isNaN(dateObj.getTime())) return dateStr;
-
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    const month = monthNames[dateObj.getMonth()];
-    const day = dateObj.getDate();
-    const year = dateObj.getFullYear();
-    return `${day} ${month} ${year}`;
-  };
-
-  const formatYAxisValue = (val) => {
-    if (typeof val !== 'number') return val;
-    if (val === 0) return '0';
-    if (Math.abs(val) >= 1000000) {
-      const formatted = (val / 1000000).toFixed(1);
-      return formatted.endsWith('.0') ? `${Math.round(val / 1000000)}M` : `${formatted}M`;
-    }
-    if (Math.abs(val) >= 1000) {
-      const formatted = (val / 1000).toFixed(1);
-      return formatted.endsWith('.0') ? `${Math.round(val / 1000)}K` : `${formatted}K`;
-    }
-    return `${val}`;
-  };
-
-  const formatTooltipDate = (dateStr) => {
-    if (!dateStr || typeof dateStr !== 'string') return dateStr;
-    if (!dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
-
-    const parts = dateStr.split('-');
-    let dateObj;
-    if (parts.length === 3) {
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      dateObj = new Date(year, month, day);
-    } else {
-      dateObj = new Date(dateStr);
-    }
-
-    if (isNaN(dateObj.getTime())) return dateStr;
-
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayOfWeek = dayNames[dateObj.getDay()];
-    const month = monthNames[dateObj.getMonth()];
-    const day = dateObj.getDate();
-    const year = dateObj.getFullYear();
-    return `${dayOfWeek}, ${month} ${day}, ${year}`;
-  };
-
-  // Custom tooltips for Recharts formatted matching YouTube Studio
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const entry = payload.find(p => p.dataKey === selectedMetric || (selectedMetric === 'impressions' && p.dataKey === 'impressions') || p.dataKey === 'views') || payload[0];
-      const val = entry.value;
-      let formatted = typeof val === 'number' ? val.toLocaleString('en-IN') : val;
-      if (selectedMetric === 'revenue') {
-        formatted = `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      } else if (selectedMetric === 'watchTimeHrs') {
-        formatted = `${val} hrs`;
-      } else if (selectedMetric === 'subscribersNet') {
-        formatted = `${val >= 0 ? '+' : ''}${Number(val).toLocaleString('en-IN')}`;
-      }
-
-      return (
-        <div style={{
-          background: '#ffffff',
-          borderRadius: '8px',
-          boxShadow: '0 3px 12px rgba(0, 0, 0, 0.15)',
-          border: '1px solid #e5e5e5',
-          padding: '8px 16px',
-          textAlign: 'center',
-          fontFamily: 'Roboto, Inter, -apple-system, BlinkMacSystemFont, sans-serif'
-        }}>
-          <div style={{ fontSize: '12px', color: '#606060', fontWeight: 500, marginBottom: '2px' }}>
-            {formatTooltipDate(label)}
-          </div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#065fd4', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-            {formatted}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const datePickerRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
-        setShowDatePicker(false);
-      }
-    };
-    if (showDatePicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showDatePicker]);
-
-  const DATE_PRESET_GROUPS = useMemo(() => [
-    {
-      group: 'presets',
-      items: [
-        ...(isVideoMode ? [{ key: 'first24', label: 'First 24 hours' }] : []),
-        { key: 'last7', label: 'Last 7 days' },
-        { key: 'last28', label: 'Last 28 days' },
-        { key: 'last90', label: 'Last 90 days' },
-        { key: '365', label: 'Last 365 days' },
-        { key: 'lifetime', label: isVideoMode ? 'Since uploaded (lifetime)' : 'Lifetime' }
-      ]
-    },
-    {
-      group: 'years',
-      items: [
-        { key: '2026', label: '2026' },
-        { key: '2025', label: '2025' }
-      ]
-    },
-    {
-      group: 'months',
-      items: [
-        { key: 'august', label: 'August' },
-        { key: 'july', label: 'July' },
-        { key: 'june', label: 'June' }
-      ]
-    },
-    {
-      group: 'custom',
-      items: [
-        { key: 'custom', label: 'Custom' }
-      ]
-    }
-  ], [isVideoMode]);
-
-  const ALL_DATE_PRESETS = useMemo(() => [
-    { key: 'since_published', label: 'Since published' },
-    ...DATE_PRESET_GROUPS.flatMap(g => g.items)
-  ], [DATE_PRESET_GROUPS]);
-
-  const activePresetLabel = useMemo(() => {
-    if (isVideoMode && (selectedDateRange === 'since_published' || !selectedDateRange)) {
-      return 'Since published';
-    }
-    const found = ALL_DATE_PRESETS.find(p => p.key === selectedDateRange);
-    return found ? found.label : (isVideoMode ? 'Since published' : 'Lifetime');
-  }, [isVideoMode, selectedDateRange, ALL_DATE_PRESETS]);
-
-  const videoDateLabel = useMemo(() => {
-    if (!isVideoMode) return dateRangeLabel;
-    if (selectedDateRange && selectedDateRange !== 'since_published') {
-      return dateRangeLabel;
-    }
-    const pDate = currentVideo?.publishDate || currentVideo?.date || '2026-08-16';
-    return `${formatSingleDate(pDate)} – Now`;
-  }, [isVideoMode, selectedDateRange, dateRangeLabel, currentVideo]);
-
-  // Dynamic Realtime Calculations
-  const realtime48hViews = isVideoMode
-    ? (currentVideo.realtimeViews48h !== undefined ? Number(currentVideo.realtimeViews48h) : (currentVideo.views ? Math.round(Number(currentVideo.views) * 0.0055) : 0))
-    : (channelInfo.realtimeViews48h !== undefined ? Number(channelInfo.realtimeViews48h) : 207);
+    return 207;
+  }, [isVideoMode, currentVideo?.realtimeViews48h, currentVideo?.views, channelInfo?.realtimeViews48h]);
 
   const realtimeScaledBars = useMemo(() => {
-    if (realtime48hViews <= 0) return [];
-    const rawBars = realtimeDataset?.last48Hours || [];
-    const rawTotal = rawBars.reduce((s, b) => s + (b.views || 0), 0) || 1;
-    const factor = realtime48hViews / rawTotal;
-    return rawBars.map(b => ({
-      ...b,
-      views: Math.max(0, Math.round((b.views || 0) * factor))
-    }));
-  }, [realtimeDataset, realtime48hViews]);
-
-  const videoTrafficSources = currentVideo?.realtimeTrafficSources || {
-    search: 47.5,
-    browse: 18.6,
-    channel: 14.2,
-    other: 9.3,
-    external: 3.6
-  };
-
-  // Top videos sorted by revenue calculated using (Views / 1000) * RPM
-  const topEarningVideos = useMemo(() => {
-    return [...videos].map(v => {
-      const views = Number(v.views) || 0;
-      const rpm = Number(v.rpm) || 33.64;
-      const calculatedRevenue = v.revenue != null ? Number(v.revenue) : (views / 1000) * rpm;
+    if (rtTotal48h <= 0) {
+      return Array.from({ length: 48 }, () => ({ views: 0 }));
+    }
+    const rawBars = realtimeDataset?.last48Hours || realtimeDataset?.hourlyBars || [];
+    if (rawBars.length === 0) {
+      return Array.from({ length: 48 }, (_, idx) => ({
+        views: Math.max(0, Math.round((rtTotal48h / 48) * (0.7 + ((idx * 7) % 7) * 0.1))),
+      }));
+    }
+    const rawTotal =
+      rawBars.reduce((s, b) => s + (typeof b === 'object' ? Number(b.views || 0) : Number(b || 0)), 0) || 1;
+    const factor = rtTotal48h / rawTotal;
+    return rawBars.map((b) => {
+      const val = typeof b === 'object' ? Number(b.views || 0) : Number(b || 0);
       return {
-        ...v,
-        calculatedRevenue,
-        calculatedRevenueFormatted: formatINR(calculatedRevenue)
+        ...(typeof b === 'object' ? b : {}),
+        views: Math.max(0, Math.round(val * factor)),
       };
-    }).sort((a, b) => b.calculatedRevenue - a.calculatedRevenue);
+    });
+  }, [realtimeDataset, rtTotal48h]);
+
+  const rtTopVideos = useMemo(() => {
+    return [...videos]
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .slice(0, 3)
+      .map((v) => ({
+        id: v.id,
+        title: v.title,
+        thumbnail: v.thumbnail || '/thumbnails/latest_video.png',
+        views48h:
+          v.realtimeViews48h !== undefined &&
+          v.realtimeViews48h !== null &&
+          Number(v.realtimeViews48h) > 0
+            ? Number(v.realtimeViews48h)
+            : Number(v.views || 0),
+      }));
   }, [videos]);
 
-  // Channels your audience watches dataset
-  const audienceChannels = [
-    { name: 'Invisible Gyan', subs: '477.0K subscribers', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' },
-    { name: 'Rahul Upmanyu', subs: '318.0K subscribers', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
-    { name: 'Shivani Raaz Shukla 2.0', subs: '117.0K subscribers', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80' },
-    { name: 'THE RADIO TV', subs: '366.0K subscribers', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
-    { name: 'Saddam Kassim', subs: '1.0M subscribers', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' }
-  ];
+  const parseRupeeNumber = (val, fallback = 0) => {
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    if (val === null || val === undefined || val === '') return fallback;
+    const parsed = Number(String(val).replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
 
-  return (
-    <div className="dashboard-container analytics-page">
-      {/* Header */}
-      <div className="analytics-header">
-        <div>
-          <h1 className="dashboard-title">
-            {isVideoMode ? 'Video analytics' : 'Channel analytics'}
-          </h1>
+  const parseDurationToSeconds = (durStr) => {
+    if (typeof durStr === 'number' && Number.isFinite(durStr)) return Math.max(0, durStr);
+    if (!durStr) return 0;
+    const parts = String(durStr)
+      .trim()
+      .split(':')
+      .map((n) => Number(n));
+    if (parts.some((n) => !Number.isFinite(n))) return 0;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts[0] || 0;
+  };
 
-          {/* Prompt Pills under Title */}
-          <div className="analytics-prompt-pills">
-            <button className="prompt-pill">
-              <span className="sparkle-icon">✦</span> How did viewers find my content?
+  const computeAvgPctViewed = (avgDurStr, totalDurStr) => {
+    const avgSec = parseDurationToSeconds(avgDurStr);
+    const totalSec = parseDurationToSeconds(totalDurStr);
+    if (avgSec > 0 && totalSec > 0) {
+      const pct = Math.min(99, Math.max(1, Math.round((avgSec / totalSec) * 100)));
+      return `${pct}%`;
+    }
+    return '14%';
+  };
+
+  const topEarningVideos = useMemo(() => {
+    return [...videos]
+      .map((v) => ({
+        ...v,
+        revNum: getVideoRevenueValue(v),
+      }))
+      .sort((a, b) => b.revNum - a.revNum);
+  }, [videos]);
+
+  const navigateHub = (targetHub) => {
+    navigate(`${analyticsBasePath}/${targetHub}`);
+  };
+
+  const handleSelectDateRange = (key) => {
+    setShowMorePeriods(false);
+    if (typeof setDateRange === 'function') setDateRange(key);
+  };
+
+  const renderDatePills = () => {
+    const primaryPresets = isVideoMode
+      ? [
+          { key: 'last7', label: '7 days' },
+          { key: 'last28', label: '28 days' },
+          { key: 'lifetime', label: 'Since uploaded' },
+        ]
+      : [
+          { key: 'last7', label: '7 days' },
+          { key: 'last28', label: '28 days' },
+          { key: 'last90', label: '90 days' },
+        ];
+
+    const isMoreActive =
+      rangeKey === 'last365' ||
+      rangeKey === '365' ||
+      rangeKey === '2026' ||
+      rangeKey === '2025' ||
+      (!isVideoMode && rangeKey === 'lifetime');
+
+    const moreBtnLabel =
+      rangeKey === 'last365' || rangeKey === '365'
+        ? '365 days'
+        : !isVideoMode && rangeKey === 'lifetime'
+        ? 'Lifetime'
+        : rangeKey === '2026' || rangeKey === '2025'
+        ? rangeKey
+        : 'More';
+
+    return (
+      <div className="an26-date-controls">
+        {primaryPresets.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            className={`an26-pill-filter ${rangeKey === p.key ? 'active' : ''}`}
+            onClick={() => handleSelectDateRange(p.key)}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        <div className="an26-more-wrap">
+          <button
+            type="button"
+            className={`an26-pill-filter ${isMoreActive ? 'active' : ''}`}
+            onClick={() => setShowMorePeriods((m) => !m)}
+          >
+            <span>{moreBtnLabel}</span>
+            <span className="material-symbols-outlined">expand_more</span>
+          </button>
+
+          {showMorePeriods && (
+            <div className="an26-more-menu">
+              <button type="button" onClick={() => handleSelectDateRange('last365')}>
+                Last 365 days
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('lifetime')}>
+                Lifetime
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('2026')}>
+                2026
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMorePeriods(false);
+                  navigateHub('explore');
+                }}
+              >
+                Custom in Advanced mode
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Advanced Mode
+  if (hubMode === 'explore') {
+    return (
+      <div className="an26-page">
+        <AdvancedModeView
+          channelInfo={channelInfo}
+          videos={videos}
+          daily={rawDaily}
+          aggregated={agg}
+          trafficSources={snapshot?.trafficSources}
+          audience={snapshot?.audience}
+          datePreset={rangeKey}
+          setDatePreset={handleSelectDateRange}
+          dateRangeLabel={snapshot?.dateRangeLabel}
+          videoId={currentVideo?.id || null}
+          onClose={() => navigateHub('hub_overview')}
+        />
+      </div>
+    );
+  }
+
+  // Channel Research Sub-Hub
+  if (hubMode === 'hub_research') {
+    return (
+      <div className="an26-page">
+        <ResearchHub
+          channelInfo={channelInfo}
+          videos={videos}
+          channelPrefix={CHANNEL_PREFIX}
+          onBack={() => navigateHub('hub_overview')}
+        />
+      </div>
+    );
+  }
+
+  // Sub-Hub: Content (Channel mode) — 1+3 Sparkline Grid + Retention Intros + Tapered Funnel + Traffic Bars
+  if (hubMode === 'hub_content') {
+    const scopedVideos = videos.filter((v) => {
+      const fmt = String(v.format || v.type || '').toLowerCase();
+      if (contentFormatTab === 'shorts') return fmt === 'short' || Boolean(v.isShort);
+      if (contentFormatTab === 'live') return fmt === 'live';
+      if (contentFormatTab === 'videos') return fmt !== 'short' && fmt !== 'live' && !v.isShort;
+      if (contentFormatTab === 'posts' || contentFormatTab === 'podcasts') return false;
+      if (contentFormatTab === 'playlists') return true;
+      return true;
+    });
+    const allVideosViews = videos.reduce((acc, v) => acc + Number(v.views || 0), 0);
+    const scopedVideosViews = scopedVideos.reduce((acc, v) => acc + Number(v.views || 0), 0);
+    const formatScale =
+      contentFormatTab === 'all'
+        ? 1
+        : contentFormatTab === 'playlists'
+        ? playlists.length > 0
+          ? 0.28
+          : 0
+        : allVideosViews > 0
+        ? scopedVideosViews / allVideosViews
+        : 0;
+
+    const scopedViews = Math.round((agg.views || 0) * formatScale);
+    const impTotal = Math.round((agg.impressions || Math.round((agg.views || 0) * 14)) * formatScale);
+    const scaleSeries = (series) =>
+      formatScale === 1
+        ? series
+        : series.map((pt) => ({ ...pt, value: Math.round((pt.value || 0) * formatScale) }));
+
+    const impSeries = scaleSeries(buildMetricSeries('impressions'));
+    const ctrSeries = formatScale === 0 ? [] : buildMetricSeries('ctr');
+    const wtSeries = scaleSeries(buildMetricSeries('watchTimeHrs'));
+    const viewsSeries = scaleSeries(buildMetricSeries('views'));
+
+    const retentionRanked = [...scopedVideos]
+      .map((v, i) => ({
+        ...v,
+        retPct:
+          retentionMomentTab === 'spikes'
+            ? Math.min(78, 52 + ((i * 5) % 19))
+            : retentionMomentTab === 'dips'
+            ? Math.max(24, 42 - ((i * 3) % 15))
+            : Math.max(41, 54 - i),
+      }))
+      .sort((a, b) => b.retPct - a.retPct)
+      .slice(0, 6);
+
+    const hasContentData = formatScale > 0 && (scopedVideos.length > 0 || contentFormatTab === 'playlists');
+    const displayAvgDur = hasContentData
+      ? scopedVideos[0]?.avgViewDuration || scopedVideos[0]?.avgDuration || '4:01'
+      : '0:00';
+    const targetAvgDurSec = hasContentData ? parseDurationToSeconds(displayAvgDur) : 0;
+    const wtMean =
+      wtSeries.reduce((acc, pt) => acc + Math.max(0, Number(pt.value || 0)), 0) /
+        Math.max(1, wtSeries.length) || 1;
+    const avgDurSeries = wtSeries.map((pt) => ({
+      ...pt,
+      value: hasContentData
+        ? Math.max(15, Math.round(targetAvgDurSec * (0.88 + 0.14 * (Number(pt.value || 0) / wtMean))))
+        : 0,
+    }));
+
+    return (
+      <div className="an26-page">
+        <div className="an26-subhub-header">
+          <button type="button" className="an26-back-btn" onClick={() => navigateHub('hub_overview')}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="yt-display-font">Content</span>
+          </button>
+          <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+            Advanced mode
+          </button>
+        </div>
+
+        <div className="an26-pill-tabs" style={{ marginBottom: 18 }}>
+          {['all', 'videos', 'shorts', 'live', 'posts', 'playlists', 'podcasts'].map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`an26-pill-filter ${contentFormatTab === t ? 'active' : ''}`}
+              onClick={() => setContentFormatTab(t)}
+            >
+              {t[0].toUpperCase() + t.slice(1)}
             </button>
-            <button className="prompt-pill">
-              <span className="sparkle-icon">✦</span> How many new viewers did I reach?
-            </button>
-            <button className="prompt-pill">
-              <span className="sparkle-icon">✦</span> Summarize my latest video performance
-            </button>
-            <button className="prompt-more-btn" title="More options">
-              <span className="material-symbols-outlined">more_vert</span>
-            </button>
+          ))}
+        </div>
+
+        <div className="an26-section-toolbar">
+          <h2 className="an26-section-h2">Key metrics</h2>
+          {renderDatePills()}
+        </div>
+
+        {/* 1 + 3 Sparkline Grid */}
+        <div className="an26-split-60-40">
+          <div className="an26-card">
+            <h3 className="an26-card-t-sm">Views</h3>
+            <div className="an26-hero-kpi-inline">
+              <strong className="an26-kpi-big-num yt-display-font">
+                {contentFormatTab === 'all' ? agg.viewsFormatted || fmtV(agg.views || 0) : fmtV(scopedViews)}
+              </strong>
+              {hasContentData && <StudioUpBadge />}
+              {hasContentData && (
+                <span className="an26-delta-muted">{fmtV(Math.round(scopedViews * 0.45))}</span>
+              )}
+            </div>
+            <StudioLineMetricChart data={viewsSeries} metricKey="views" height={205} showUploadMarkers={hasContentData} />
+          </div>
+
+          <div className="an26-stack-3">
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Thumbnail impressions</h4>
+                <div className="an26-spark-num-row">
+                  <strong className="yt-display-font">{fmtV(impTotal)}</strong>
+                  {hasContentData && <StudioDownBadge />}
+                </div>
+              </div>
+              <MiniSparklineChart data={impSeries} metricKey="views" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Thumbnail click-through rate</h4>
+                <div className="an26-spark-num-row">
+                  <strong className="yt-display-font">
+                    {hasContentData ? formatPctValue(agg.ctr, '6.6%') : '0.0%'}
+                  </strong>
+                </div>
+              </div>
+              <MiniSparklineChart data={ctrSeries} metricKey="ctr" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Avg. view duration</h4>
+                <div className="an26-spark-num-row">
+                  <strong className="yt-display-font">{displayAvgDur}</strong>
+                </div>
+              </div>
+              <MiniSparklineChart data={avgDurSeries} metricKey="duration" />
+            </div>
           </div>
         </div>
 
-        <div className="analytics-header-right">
-          <button className="advanced-mode-btn">
-            Advanced mode
-          </button>
-
-          <div className="yt-date-selector-wrapper" ref={datePickerRef}>
-            <div
-              className="yt-date-selector"
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              title="Select analytics date range"
-            >
-              <span className="date-sub-text">{selectedDateRange === 'lifetime' ? '11 Feb 2023 – 13 Nov 2026' : (selectedDateRange === 'last28' ? '17 Oct – 13 Nov 2026' : (isVideoMode ? videoDateLabel : dateRangeLabel))}</span>
-              <span className="date-main-text">
-                <span>{activePresetLabel}</span>
-                <span className="material-symbols-outlined date-arrow">keyboard_arrow_down</span>
+        <div className="an26-bento-3" style={{ marginTop: 18 }}>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Key moments for audience retention</h3>
+                <span className="an26-card-sub">Latest videos · Last 365 days</span>
+              </div>
+            </div>
+            <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+              {[
+                { key: 'intro', label: 'Intro' },
+                { key: 'spikes', label: 'Spikes' },
+                { key: 'dips', label: 'Dips' },
+              ].map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  className={`an26-pill-filter ${retentionMomentTab === m.key ? 'active' : ''}`}
+                  onClick={() => setRetentionMomentTab(m.key)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="an26-card-subhead-row">
+              <strong>
+                {retentionMomentTab === 'intro'
+                  ? 'Above typical intros'
+                  : retentionMomentTab === 'spikes'
+                  ? 'Top viewer replays'
+                  : 'Key viewer drop-offs'}
+              </strong>
+              <span>
+                {retentionMomentTab === 'intro'
+                  ? 'Still watching at 00:30'
+                  : retentionMomentTab === 'spikes'
+                  ? 'Peak moment %'
+                  : 'Avg segment retained'}
               </span>
             </div>
-
-            {showDatePicker && (
-              <div className="date-picker-dropdown">
-                <div className="dropdown-active-header">
-                  <div className="dropdown-active-title">{activePresetLabel}</div>
-                  <div className="dropdown-updated-pill">Updated 1 min ago</div>
-                </div>
-
-                {DATE_PRESET_GROUPS.map((group, gIdx) => (
-                  <React.Fragment key={group.group}>
-                    <div className="dropdown-divider" />
-                    <div className="dropdown-group-items">
-                      {group.items.map(preset => {
-                        const isActive = selectedDateRange === preset.key;
-                        return (
-                          <div
-                            key={preset.key}
-                            className={`date-option ${isActive ? 'active' : ''}`}
-                            onClick={() => {
-                              setDateRange(preset.key);
-                              setShowDatePicker(false);
-                            }}
-                          >
-                            <span>{preset.label}</span>
-                            {isActive && <span className="material-symbols-outlined check-ic">check</span>}
-                          </div>
-                        );
-                      })}
+            {retentionRanked.length === 0 ? (
+              <p className="an26-card-sub" style={{ padding: '12px 0' }}>
+                No published content for this format in the selected period.
+              </p>
+            ) : (
+              <div className="an26-top-videos-list">
+                {retentionRanked.map((v) => (
+                  <div
+                    key={v.id}
+                    className="an26-top-video-row"
+                    onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_engagement`)}
+                  >
+                    <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                    <div className="an26-tv-meta">
+                      <p>{v.title}</p>
                     </div>
-                  </React.Fragment>
+                    <span className="an26-tv-views">{v.retPct}%</span>
+                  </div>
                 ))}
               </div>
             )}
           </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>How impressions lead to watch time</h3>
+                <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <ReachFunnelCard
+              impressions={impTotal}
+              ctr={hasContentData ? formatPctValue(agg.ctr, '6.3%') : '0.0%'}
+              views={scopedViews}
+              avgDuration={displayAvgDur}
+              watchTimeHrs={Math.round((agg.watchTimeHrs || 0) * formatScale)}
+            />
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>How viewers find your videos</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <div className="an26-pill-tabs" style={{ marginBottom: 14 }}>
+              {[
+                { key: 'overall', label: 'Overall' },
+                { key: 'external', label: 'External' },
+                { key: 'search', label: 'YouTube Search' },
+                { key: 'suggested', label: 'Suggested videos' },
+                { key: 'playlists', label: 'Playlists' },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={`an26-pill-filter ${trafficFilterTab === t.key ? 'active' : ''}`}
+                  onClick={() => setTrafficFilterTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <StudioProgressList items={hasContentData ? trafficItems : []} />
+          </div>
+        </div>
+
+        <div className="an26-third-card an26-card">
+          <div className="an26-card-head">
+            <div>
+              <h3>
+                {contentFormatTab === 'playlists'
+                  ? 'Top playlists'
+                  : contentFormatTab === 'shorts'
+                  ? 'Top Shorts'
+                  : 'Top videos'}
+              </h3>
+              <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+            </div>
+          </div>
+          {contentFormatTab === 'playlists' ? (
+            <div className="an26-top-videos-list">
+              {(playlists || []).slice(0, 5).map((p) => (
+                <div key={p.id} className="an26-top-video-row">
+                  <img src={p.thumbnail || '/thumbnails/latest_video.png'} alt={p.title} />
+                  <div className="an26-tv-meta">
+                    <p>{p.title}</p>
+                  </div>
+                  <span className="an26-tv-views">{p.videoCount || 0} videos</span>
+                </div>
+              ))}
+            </div>
+          ) : scopedVideos.length === 0 ? (
+            <p className="an26-card-sub" style={{ padding: '12px 0' }}>
+              No published content for this format in the selected period.
+            </p>
+          ) : (
+            <div className="an26-top-videos-list">
+              {scopedVideos.slice(0, 5).map((v) => (
+                <div
+                  key={v.id}
+                  className="an26-top-video-row"
+                  onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_overview`)}
+                >
+                  <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                  <div className="an26-tv-meta">
+                    <p>{v.title}</p>
+                  </div>
+                  <strong className="an26-tv-views">{v.viewsFormatted || fmtV(v.views)}</strong>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+    );
+  }
 
-      {/* Navigation Tabs */}
-      <div className="content-tabs">
-        {(isVideoMode ? ['Overview', 'Reach', 'Engagement', 'Audience', 'Revenue'] : ['Overview', 'Content', 'Audience', 'Revenue', 'Trends']).map(tab => (
-          <button
-            key={tab}
-            className={`tab ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => handleTabChange(tab)}
-          >
-            {tab}
+  // Sub-Hub: Reach (Video mode)
+  if (hubMode === 'hub_reach') {
+    const impTotal = agg.impressions || Math.round((agg.views || 1000) * 14.2);
+    const impSeries = buildMetricSeries('impressions');
+    const viewsSeries = buildMetricSeries('views');
+    const ctrSeries = buildMetricSeries('ctr');
+    const uniqSeries = buildMetricSeries('unique');
+    const matchingPlaylists = playlists.filter(
+      (p) => Array.isArray(p.videoIds) && p.videoIds.includes(currentVideo?.id)
+    );
+    const suggestingVideos = videos
+      .filter((v) => v.id !== currentVideo?.id)
+      .slice(0, 5)
+      .map((v, idx) => ({
+        ...v,
+        suggestShare: idx === 0 ? '7.7%' : '3.8%',
+      }));
+
+    return (
+      <div className="an26-page">
+        <div className="an26-subhub-header">
+          <button type="button" className="an26-back-btn" onClick={() => navigateHub('hub_overview')}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="yt-display-font">Reach</span>
           </button>
-        ))}
-      </div>
+          <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+            Advanced mode
+          </button>
+        </div>
 
-      {/* OVERVIEW TAB */}
-      {activeTab === 'Overview' && (
-        <div className="overview-tab-content">
-          <div className="analytics-main-grid">
-            {/* Left Column: Hero Chart & Top Content */}
-            <div className="overview-left-column">
-              {/* Views Count Update Info Banner */}
-              {!isNoticeDismissed && (
-                <div className="analytics-notice-banner">
-                  <div className="analytics-notice-content">
-                    <span className="material-symbols-outlined notice-icon">info</span>
-                    <span className="analytics-notice-text">
-                      We updated how views are counted, so recent counts may be higher. Keep this in mind when analyzing your performance.
+        <div className="an26-section-toolbar">
+          <h2 className="an26-section-h2">Key metrics</h2>
+          {renderDatePills()}
+        </div>
+
+        {/* 1 + 3 Sparkline Grid matching 20.20.21 */}
+        <div className="an26-split-60-40">
+          <div className="an26-card">
+            <h3 className="an26-card-t-sm">Thumbnail impressions</h3>
+            <strong className="an26-kpi-big-num yt-display-font">{fmtV(impTotal)}</strong>
+            <StudioLineMetricChart data={impSeries} metricKey="views" height={200} />
+          </div>
+
+          <div className="an26-stack-3">
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Views</h4>
+                <strong className="yt-display-font">{agg.viewsFormatted || fmtV(agg.views || 0)}</strong>
+              </div>
+              <MiniSparklineChart data={viewsSeries} metricKey="views" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Thumbnail click-through rate</h4>
+                <strong className="yt-display-font">
+                  {formatPctValue(agg.ctr ?? currentVideo?.ctr, '6.2%')}
+                </strong>
+              </div>
+              <MiniSparklineChart data={ctrSeries} metricKey="ctr" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Unique viewers</h4>
+                <strong className="yt-display-font">{fmtV(Math.round((agg.views || 0) * 0.72))}</strong>
+              </div>
+              <MiniSparklineChart data={uniqSeries} metricKey="views" showProcessingZone />
+            </div>
+          </div>
+        </div>
+
+        <div className="an26-bento-3" style={{ marginTop: 18 }}>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>How impressions lead to watch time</h3>
+                <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <ReachFunnelCard
+              impressions={impTotal}
+              ctr={formatPctValue(agg.ctr ?? currentVideo?.ctr, '6.2%')}
+              views={agg.views || 0}
+              avgDuration={currentVideo?.avgViewDuration || currentVideo?.avgDuration || '4:15'}
+              watchTimeHrs={agg.watchTimeHrs || 0}
+            />
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>How viewers found this video</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <SegmentedStatList
+              segments={overallTrafficItems.slice(0, 5).map((t) => ({
+                label: t.label,
+                pct: t.pct,
+                display: t.display,
+              }))}
+            />
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>External sites or apps</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <div className="an26-card-metric-row">
+              <span>Total traffic share</span>
+              <strong>0.2%</strong>
+            </div>
+            <StudioProgressList
+              items={[
+                { label: 'Google Search', pct: 42.6, display: '42.6%' },
+                { label: 'Instagram', pct: 31.8, display: '31.8%' },
+                { label: 'Facebook', pct: 25.6, display: '25.6%' },
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className="an26-bento-3" style={{ marginTop: 18 }}>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>YouTube search terms</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <div className="an26-card-metric-row">
+              <span>Total traffic share</span>
+              <strong>4.5%</strong>
+            </div>
+            <StudioProgressList items={searchTermItems} />
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Playlists featuring this video</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            {matchingPlaylists.length === 0 ? (
+              <p className="an26-card-sub" style={{ marginTop: 10 }}>
+                Not enough data
+              </p>
+            ) : (
+              <StudioProgressList
+                items={matchingPlaylists.slice(0, 4).map((p, idx) => ({
+                  label: p.title,
+                  pct: Math.max(10, 100 - idx * 30),
+                  display: `${p.videoCount || 1} videos`,
+                }))}
+              />
+            )}
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Content suggesting this video</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <div className="an26-card-metric-row">
+              <span>Total traffic share</span>
+              <strong>1.3%</strong>
+            </div>
+            <div className="an26-top-videos-list">
+              {suggestingVideos.map((v) => (
+                <div
+                  key={v.id}
+                  className="an26-top-video-row"
+                  onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_overview`)}
+                >
+                  <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                  <div className="an26-tv-meta">
+                    <p>{v.title}</p>
+                  </div>
+                  <span className="an26-tv-views">{v.suggestShare}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="an26-third-card an26-card">
+          <div className="an26-card-head">
+            <div>
+              <h3>Subscriber notifications</h3>
+            </div>
+          </div>
+          <NotificationFunnelCard
+            pushSent={Math.max(120, Math.round((agg.views || 500) * 1.8))}
+            ctr="0.7%"
+            viewsFromNotifs={Math.max(8, Math.round((agg.views || 500) * 0.013))}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Sub-Hub: Engagement (Video mode) — 1+3 Sparkline Grid + Retention Curve + Likes ratio + Comments + Hype
+  if (hubMode === 'hub_engagement') {
+    const wtSeries = buildMetricSeries('watchTimeHrs');
+    const avgDurStr = currentVideo?.avgViewDuration || currentVideo?.avgDuration || '4:15';
+    const targetAvgDurSec = parseDurationToSeconds(avgDurStr);
+    const wtMean =
+      wtSeries.reduce((acc, d) => acc + Math.max(0, Number(d.value || 0)), 0) /
+        Math.max(1, wtSeries.length) || 1;
+    const avgDurSeries = wtSeries.map((d) => ({
+      ...d,
+      value: Math.max(15, Math.round(targetAvgDurSec * (0.86 + 0.16 * (Number(d.value || 0) / wtMean)))),
+    }));
+    const sharesTotal = Number(
+      currentVideo?.shares ?? Math.max(4, Math.round((agg.views || 100) * 0.008))
+    );
+    const likesTotal = Number(currentVideo?.likes ?? 41);
+    const dailyShareBase = sharesTotal / Math.max(4, wtSeries.length * 0.5);
+    const dailyLikeBase = likesTotal / Math.max(4, wtSeries.length * 0.5);
+    const sharesSeries = wtSeries.map((d) => ({
+      ...d,
+      value: Math.max(0, Math.round(dailyShareBase * Math.max(0.15, Number(d.value || 0) / wtMean))),
+    }));
+    const likesSeries = wtSeries.map((d) => ({
+      ...d,
+      value: Math.max(0, Math.round(dailyLikeBase * Math.max(0.15, Number(d.value || 0) / wtMean))),
+    }));
+    const avgPctViewedStr = computeAvgPctViewed(avgDurStr, currentVideo?.duration);
+    const videoCommentsCount =
+      currentVideo?.comments ?? currentVideo?.commentsCount ?? currentVideo?.commentCount ?? 0;
+
+    return (
+      <div className="an26-page">
+        <div className="an26-subhub-header">
+          <button type="button" className="an26-back-btn" onClick={() => navigateHub('hub_overview')}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="yt-display-font">Engagement</span>
+          </button>
+          <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+            Advanced mode
+          </button>
+        </div>
+
+        <div className="an26-section-toolbar">
+          <h2 className="an26-section-h2">Key metrics</h2>
+          {renderDatePills()}
+        </div>
+
+        <div className="an26-split-60-40">
+          <div className="an26-card">
+            <h3 className="an26-card-t-sm">Watch time (hours)</h3>
+            <strong className="an26-kpi-big-num yt-display-font">
+              {formatHoursValue(agg.watchTimeHrs || 0)}
+            </strong>
+            <StudioLineMetricChart
+              data={wtSeries}
+              metricKey="watchTimeHrs"
+              height={200}
+              showTypical
+            />
+          </div>
+
+          <div className="an26-stack-3">
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Average view duration</h4>
+                <strong className="yt-display-font">{avgDurStr}</strong>
+              </div>
+              <MiniSparklineChart data={avgDurSeries} metricKey="duration" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Shares</h4>
+                <strong className="yt-display-font">{formatCountComma(sharesTotal)}</strong>
+              </div>
+              <MiniSparklineChart data={sharesSeries} metricKey="views" />
+            </div>
+
+            <div className="an26-card an26-spark-card">
+              <div>
+                <h4 className="an26-spark-title">Likes</h4>
+                <strong className="yt-display-font">
+                  {currentVideo?.likesFormatted || fmtV(likesTotal)}
+                </strong>
+              </div>
+              <MiniSparklineChart data={likesSeries} metricKey="views" />
+            </div>
+          </div>
+        </div>
+
+        <div className="an26-bento-2" style={{ marginTop: 18 }}>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Key moments for audience retention</h3>
+                <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <RetentionCurveChart
+              duration={currentVideo?.duration || '15:14'}
+              showTabs
+              avgDuration={avgDurStr}
+              avgPctViewed={avgPctViewedStr}
+              introRetainedPct="50.0%"
+            />
+          </div>
+
+          <div className="an26-stack-2">
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Likes vs. dislikes</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <div className="an26-hero-kpi-inline">
+                <strong className="an26-kpi-big-num yt-display-font">97.6%</strong>
+                <StudioDownBadge />
+                <span className="an26-delta-muted" style={{ color: '#606060' }}>18.9%</span>
+              </div>
+            </div>
+
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Comments</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <strong className="an26-kpi-big-num yt-display-font">{videoCommentsCount}</strong>
+            </div>
+
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Hype</h3>
+                  <span className="an26-card-sub">Hype points · {snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <p className="an26-card-sub" style={{ marginTop: 4 }}>
+                No hype activity recorded in the selected period.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Sub-Hub: Audience (Channel & Video)
+  if (hubMode === 'hub_audience') {
+    const uniqSeries = buildMetricSeries('unique');
+    const subSeries = buildMetricSeries('subscribers');
+    const monthlyAudience = Math.round((agg.views || 0) * 0.72);
+    const subWatchShare = isVideoMode ? 66.2 : 9.4;
+    const notSubWatchShare = Number((100 - subWatchShare).toFixed(1));
+
+    const deviceSegments = (() => {
+      if (!isVideoMode && deviceFilterTab === 'shorts') {
+        return [
+          { label: 'Mobile phone', pct: 95.2, display: '95.2%' },
+          { label: 'Computer', pct: 3.1, display: '3.1%' },
+          { label: 'TV', pct: 1.1, display: '1.1%' },
+          { label: 'Tablet', pct: 0.6, display: '0.6%' },
+        ];
+      }
+      if (!isVideoMode && deviceFilterTab === 'live') {
+        return [
+          { label: 'Mobile phone', pct: 78.0, display: '78.0%' },
+          { label: 'Computer', pct: 16.5, display: '16.5%' },
+          { label: 'TV', pct: 4.1, display: '4.1%' },
+          { label: 'Tablet', pct: 1.4, display: '1.4%' },
+        ];
+      }
+      if (!isVideoMode && deviceFilterTab === 'videos') {
+        return [
+          { label: 'Mobile phone', pct: 85.3, display: '85.3%' },
+          { label: 'Computer', pct: 11.0, display: '11.0%' },
+          { label: 'TV', pct: 2.6, display: '2.6%' },
+          { label: 'Tablet', pct: 1.1, display: '1.1%' },
+        ];
+      }
+      return isVideoMode
+        ? [
+            { label: 'Mobile phone', pct: 85.3, display: '85.3%' },
+            { label: 'Computer', pct: 11.0, display: '11.0%' },
+            { label: 'TV', pct: 2.6, display: '2.6%' },
+            { label: 'Tablet', pct: 1.1, display: '1.1%' },
+          ]
+        : [
+            { label: 'Mobile phone', pct: 86.4, display: '86.4%' },
+            { label: 'Computer', pct: 9.0, display: '9.0%' },
+            { label: 'TV', pct: 2.8, display: '2.8%' },
+            { label: 'Tablet', pct: 1.6, display: '1.6%' },
+          ];
+    })();
+
+    const popularAudVideos = [...videos]
+      .sort((a, b) => {
+        if (popularAudTab === 'casual') {
+          return String(b.title || '').localeCompare(String(a.title || ''));
+        }
+        if (popularAudTab === 'regular') {
+          return Number(a.views || 0) - Number(b.views || 0);
+        }
+        return Number(b.views || 0) - Number(a.views || 0);
+      })
+      .slice(0, 5)
+      .map((v) => {
+        const mult = popularAudTab === 'new' ? 0.72 : popularAudTab === 'casual' ? 0.21 : 0.07;
+        return {
+          ...v,
+          segViews: fmtV(Math.max(12, Math.round(Number(v.views || 0) * mult))),
+        };
+      });
+
+    const otherChannelsList = [
+      { name: 'Mindful Soul Insights', subs: '46.4K subscribers', initials: 'MS', bg: '#4747eb' },
+      { name: 'Modern Relationship Lab', subs: '140K subscribers', initials: 'MR', bg: '#8b2fc9' },
+      { name: 'Deep Connection Daily', subs: '210K subscribers', initials: 'DC', bg: '#065fd4' },
+      { name: 'Inner Clarity Studio', subs: '500K subscribers', initials: 'IC', bg: '#137333' },
+    ];
+
+    const otherWatchedVideos = [...videos]
+      .slice(0, otherWatchTab === 'videos' ? 3 : 5)
+      .reverse()
+      .slice(0, 3);
+
+    return (
+      <div className="an26-page">
+        <div className="an26-subhub-header">
+          <button type="button" className="an26-back-btn" onClick={() => navigateHub('hub_overview')}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="yt-display-font">Audience</span>
+          </button>
+          <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+            Advanced mode
+          </button>
+        </div>
+
+        <div className="an26-section-toolbar">
+          <h2 className="an26-section-h2">Key metrics</h2>
+          {renderDatePills()}
+        </div>
+
+        <div className="an26-bento-2" style={{ marginBottom: 22 }}>
+          <div className="an26-card">
+            <div className="an26-card-head-ic">
+              <div>
+                <h3>{isVideoMode ? 'Unique viewers' : 'Monthly audience'}</h3>
+                <strong className="an26-kpi-big-num yt-display-font">{fmtV(monthlyAudience)}</strong>
+              </div>
+              {!isVideoMode && (
+                <span className="material-symbols-outlined an26-clock-ic" title="Last few days processing">
+                  schedule
+                </span>
+              )}
+            </div>
+            <StudioLineMetricChart
+              data={uniqSeries}
+              metricKey="views"
+              height={185}
+              showProcessingZone
+              showUploadMarkers={!isVideoMode}
+            />
+          </div>
+
+          <div className="an26-card">
+            <h3>Subscribers</h3>
+            <div className="an26-hero-kpi-inline" style={{ marginBottom: 4 }}>
+              <strong className="an26-kpi-big-num yt-display-font">
+                {agg.subscribersNetFormatted || '+0'}
+              </strong>
+              {!isVideoMode && (
+                <>
+                  <StudioUpBadge />
+                  <span className="an26-delta-muted">
+                    {fmtV(Math.round(Math.abs(agg.subscribersNet || 0) * 0.4))}
+                  </span>
+                </>
+              )}
+            </div>
+            <StudioLineMetricChart
+              data={subSeries}
+              metricKey="subscribers"
+              height={185}
+              showUploadMarkers={!isVideoMode}
+            />
+          </div>
+        </div>
+
+        <h2 className="an26-section-h2" style={{ marginBottom: 14 }}>Watch behavior</h2>
+
+        {isVideoMode ? (
+          <>
+            <div className="an26-bento-3" style={{ marginBottom: 18 }}>
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Audience by watch behavior</h3>
+                    <span className="an26-card-sub">Unique viewers · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <SegmentedStatList segments={viewerLoyaltySegments} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top subtitle/CC languages</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <StudioProgressList items={languageItems.slice(0, 4)} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Device type</h3>
+                    <span className="an26-card-sub">Watch time (hours) · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <SegmentedStatList segments={deviceSegments} />
+              </div>
+            </div>
+
+            <div className="an26-third-card an26-card" style={{ marginTop: 0, marginBottom: 22 }}>
+              <div className="an26-card-head">
+                <div>
+                  <h3>Watch time from subscribers</h3>
+                  <span className="an26-card-sub">Watch time (hours) · {snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <div className="an26-wt-sub-bar-track">
+                <div className="an26-wt-sub-bar-fill" style={{ width: `${subWatchShare}%` }} />
+              </div>
+              <div className="an26-wt-sub-split">
+                <div>
+                  <strong className="yt-display-font">{subWatchShare}%</strong>
+                  <span>Subscribed</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <strong className="yt-display-font">{notSubWatchShare}%</strong>
+                  <span>Not subscribed</span>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="an26-bento-3" style={{ marginBottom: 18 }}>
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Audience by watch behavior</h3>
+                    <span className="an26-card-sub">Monthly audience</span>
+                  </div>
+                </div>
+                <SegmentedStatList segments={viewerLoyaltySegments} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Popular with different audiences</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+                  {[
+                    { key: 'new', label: 'New' },
+                    { key: 'casual', label: 'Casual' },
+                    { key: 'regular', label: 'Regular' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`an26-pill-filter ${popularAudTab === tab.key ? 'active' : ''}`}
+                      onClick={() => setPopularAudTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="an26-top-videos-list">
+                  {popularAudVideos.map((v) => (
+                    <div
+                      key={v.id}
+                      className="an26-top-video-row"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_audience`)}
+                    >
+                      <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                      <div className="an26-tv-meta">
+                        <p>{v.title}</p>
+                      </div>
+                      <span className="an26-tv-views">{v.segViews}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Videos growing your audience</h3>
+                    <span className="an26-card-sub">New viewers who returned · Last 90 days</span>
+                  </div>
+                </div>
+                <div className="an26-top-videos-list">
+                  {videos.slice(0, 5).map((v, idx) => (
+                    <div
+                      key={v.id}
+                      className="an26-top-video-row"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_audience`)}
+                    >
+                      <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                      <div className="an26-tv-meta">
+                        <p>{v.title}</p>
+                      </div>
+                      <span className="an26-grow-badge">
+                        <span>{idx === 0 ? 'High' : 'Moderate'}</span>
+                        {idx === 0 ? <StudioUpBadge size={16} /> : <StudioCheckBadge size={16} />}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="an26-bento-3" style={{ marginBottom: 18 }}>
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top subtitle/CC languages</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <StudioProgressList items={languageItems} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>When your viewers are on YouTube</h3>
+                    <span className="an26-card-sub">
+                      Your local time ({channelInfo?.country === 'India' ? 'GMT+05:30' : 'GMT-05:00'}) · Last 28 days
                     </span>
                   </div>
-                  <div className="analytics-notice-actions">
-                    <button className="notice-btn notice-learn-more" onClick={() => window.open('https://support.google.com/youtube/answer/2991101', '_blank')}>
-                      Learn more
+                </div>
+                <AudienceHeatmapGrid matrix={snapshot?.audience?.viewerHeatmap} />
+                <p className="an26-card-sub" style={{ marginTop: 12 }}>
+                  Publish time is not known to directly affect the long-term performance of a video.{' '}
+                  <span className="an26-link-blue">Learn more</span>
+                </p>
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Subscribers with notifications</h3>
+                  </div>
+                </div>
+                <div className="an26-notif-list">
+                  <div className="an26-notif-row">
+                    <div className="an26-notif-left">
+                      <span className="material-symbols-outlined">notifications_active</span>
+                      <div>
+                        <div>Turned on &ldquo;All notifications&rdquo; for your channel</div>
+                        <div className="an26-card-sub">Typical on YouTube: 10% - 30%</div>
+                      </div>
+                    </div>
+                    <span className="an26-notif-val">7.3%</span>
+                  </div>
+                  <div className="an26-notif-row">
+                    <div className="an26-notif-left">
+                      <span className="material-symbols-outlined">phonelink_ring</span>
+                      <div>
+                        <div>Turned on &ldquo;All notifications&rdquo; and YouTube notifications</div>
+                        <div className="an26-card-sub">Typical on YouTube: 5% - 20%</div>
+                      </div>
+                    </div>
+                    <span className="an26-notif-val">4.0%</span>
+                  </div>
+                </div>
+                <p className="an26-card-sub">
+                  Notifications won&apos;t reach subscribers who turned off notifications in the YouTube app or signed out.{' '}
+                  <span className="an26-link-blue">Learn more</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="an26-bento-3" style={{ marginBottom: 22 }}>
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Device type</h3>
+                    <span className="an26-card-sub">Watch time (hours) · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+                  {['all', 'videos', 'shorts', 'live'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`an26-pill-filter ${deviceFilterTab === t ? 'active' : ''}`}
+                      onClick={() => setDeviceFilterTab(t)}
+                    >
+                      {t[0].toUpperCase() + t.slice(1)}
                     </button>
-                    <button className="notice-btn notice-dismiss" onClick={() => setIsNoticeDismissed(true)}>
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="analytics-headline-box">
-                <h2 className="analytics-headline-title">
-                  {selectedDateRange === 'lifetime' && !isVideoMode
-                    ? 'Your channel has had 3,696,747 views so far'
-                    : (isVideoMode
-                      ? 'Views are up 51%! More people than usual are watching this video from YouTube search results.'
-                      : 'Keep it up! Your channel got about the same number of views as usual.')}
-                </h2>
-                {!(selectedDateRange === 'lifetime' && !isVideoMode) && (
-                  <p className="analytics-headline-sub">
-                    {isVideoMode
-                      ? `This video has gotten ${aggregated.viewsFormatted || fmtV(currentVideo.views) || '0'} views since it was published`
-                      : `Your channel got ${aggregated.viewsFormatted} views in this selected period`}
-                  </p>
-                )}
-              </div>
-
-              <div className="analytics-card hero-chart-card">
-                {/* 4 Metric selector tabs */}
-                <div className="metrics-selector-row">
-                  <div
-                    className={`metric-selector-item ${selectedMetric === 'views' ? 'active' : ''}`}
-                    onClick={() => setSelectedMetric('views')}
-                  >
-                    <div className="metric-selector-label">
-                      Views
-                      {selectedDateRange === 'lifetime' && !isVideoMode && (
-                        <span className="material-symbols-outlined" style={{ fontSize: '15px', color: '#606060', verticalAlign: 'middle', marginLeft: '4px' }}>
-                          warning
-                        </span>
-                      )}
-                    </div>
-                    <div className="metric-selector-val">
-                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '37L' : (aggregated.viewsFormatted || fmtV(currentVideo.views) || '0')}</span>
-                      {selectedDateRange !== 'lifetime' && <StudioCheckBadge style={{ marginLeft: '6px' }} />}
-                    </div>
-                    {selectedDateRange !== 'lifetime' && (
-                      <div className="metric-sub-label">{isVideoMode ? `${fmtV(Math.round(aggregated.views * 0.34))} more than usual` : 'About the same as usual'}</div>
-                    )}
-                  </div>
-
-                  <div
-                    className={`metric-selector-item ${selectedMetric === 'watchTimeHrs' ? 'active' : ''}`}
-                    onClick={() => setSelectedMetric('watchTimeHrs')}
-                  >
-                    <div className="metric-selector-label">Watch time (hours)</div>
-                    <div className="metric-selector-val">
-                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '6.4L' : (aggregated.watchTimeHrsFormatted || '0').replace(/\s*hrs\s*/gi, '')}</span>
-                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
-                    </div>
-                    {selectedDateRange !== 'lifetime' && (
-                      <div className="metric-sub-label">{isVideoMode ? '928.7 more than usual' : '928.7 more than usual'}</div>
-                    )}
-                  </div>
-
-                  <div
-                    className={`metric-selector-item ${selectedMetric === 'subscribersNet' ? 'active' : ''}`}
-                    onClick={() => setSelectedMetric('subscribersNet')}
-                  >
-                    <div className="metric-selector-label">Subscribers</div>
-                    <div className="metric-selector-val">
-                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '+53.9K' : (aggregated.subscribersNetFormatted || fmtS(aggregated.subscribersNet))}</span>
-                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
-                    </div>
-                    {selectedDateRange !== 'lifetime' && (
-                      <div className="metric-sub-label">150% more than previous 28 days</div>
-                    )}
-                  </div>
-
-                  <div
-                    className={`metric-selector-item ${selectedMetric === 'revenue' ? 'active' : ''}`}
-                    onClick={() => setSelectedMetric('revenue')}
-                  >
-                    <div className="metric-selector-label">Estimated revenue {selectedDateRange !== 'lifetime' && <span className="material-symbols-outlined card-info-icon">info</span>}</div>
-                    <div className="metric-selector-val">
-                      <span>{selectedDateRange === 'lifetime' && !isVideoMode ? '₹58,99,062.78' : formatINR(aggregated.revenueFormatted || aggregated.revenue || 0)}</span>
-                      {selectedDateRange !== 'lifetime' && <StudioUpBadge style={{ marginLeft: '6px' }} />}
-                    </div>
-                    {selectedDateRange !== 'lifetime' && (
-                      <div className="metric-sub-label">{isVideoMode ? `${formatINR(aggregated.revenue * 0.05)} more than usual` : '₹6,060.65 more than usual'}</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Chart Area */}
-                <div className="chart-container-wrapper">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={dailyWithTypical} margin={{ top: 16, right: 35, left: 10, bottom: 20 }}>
-                      <defs>
-                        <linearGradient id="colorBlue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2ba6de" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#2ba6de" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                      <XAxis
-                        dataKey="date"
-                        stroke="#717171"
-                        tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                        axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                        tickMargin={8}
-                        padding={{ left: 16, right: 16 }}
-                        interval={0}
-                        ticks={chartTicks}
-                        tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                        tickFormatter={formatXAxisTick}
-                      />
-                      <YAxis
-                        orientation="right"
-                        stroke="#717171"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        width={48}
-                        allowDecimals={false}
-                        domain={selectedDateRange === 'lifetime' && !isVideoMode && selectedMetric === 'views' ? [0, 30000] : [0, 'auto']}
-                        ticks={selectedDateRange === 'lifetime' && !isVideoMode && selectedMetric === 'views' ? [0, 10000, 20000, 30000] : undefined}
-                        tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                        tickFormatter={(v) => selectedMetric === 'revenue' ? `₹${formatYAxisValue(v)}` : formatYAxisValue(v)}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area
-                        type="linear"
-                        dataKey={selectedMetric}
-                        stroke="#2ba6de"
-                        strokeWidth={1.85}
-                        fill="url(#colorBlue)"
-                        isAnimationActive={false}
-                      />
-                      {videoUploadPoints.map((v, i) => (
-                        <ReferenceDot
-                          key={`marker-overview-${v.id}-${v.date}-${i}`}
-                          x={v.date}
-                          y={0}
-                          r={0}
-                          isFront={true}
-                          shape={(props) => {
-                            if (!props.cx || !props.cy) return null;
-                            return (
-                              <g transform={`translate(${props.cx - 10}, ${props.cy - 12})`} style={{ cursor: 'pointer' }}>
-                                <title>{`${v.title} (${v.date})`}</title>
-                                <rect
-                                  x="0"
-                                  y="0"
-                                  width="20"
-                                  height="13"
-                                  rx="2.5"
-                                  fill="#606060"
-                                  stroke="#444444"
-                                  strokeWidth="1"
-                                />
-                                {v.count > 1 ? (
-                                  <text
-                                    x="10"
-                                    y="9.5"
-                                    fill="#ffffff"
-                                    fontSize="9"
-                                    fontWeight="600"
-                                    textAnchor="middle"
-                                    fontFamily="Roboto, Inter, sans-serif"
-                                  >
-                                    {v.count >= 9 ? '9+' : v.count}
-                                  </text>
-                                ) : (
-                                  <polygon points="7,3.5 13,6.5 7,9.5" fill="#ffffff" />
-                                )}
-                              </g>
-                            );
-                          }}
-                        />
-                      ))}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="card-footer-action">
-                  <button className="see-more-btn">See more</button>
-                </div>
-              </div>
-
-              {/* If Video Mode, show What's going on & How viewers found this video cards */}
-              {isVideoMode ? (
-                <>
-                  <StudioCard title="What's going on?">
-                    <div style={{ padding: '4px 0', fontSize: '13px', color: '#f1f1f1', lineHeight: '1.6' }}>
-                      <p style={{ marginBottom: '16px', color: '#aaaaaa' }}>
-                        This video is appearing more often on YouTube search results compared to other videos on your channel.
-                        The topic or format of this video might be driving more interest from search results. Think about how you can use this in the future.
-                      </p>
-                      <div style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                        <StudioCheckBadge />
-                        <strong>More impressions from YouTube search</strong>
-                      </div>
-                      <p style={{ color: '#aaaaaa', fontSize: '12px', paddingLeft: '28px' }}>
-                        This video appeared {Math.round((aggregated.impressions || (Number(currentVideo.views) || 0) * 11.2) * 0.81).toLocaleString('en-IN')} times in search results — that's more than the {fmtV(Math.round((aggregated.impressions || (Number(currentVideo.views) || 0) * 11.2) * 0.15))}–{fmtV(Math.round((aggregated.impressions || (Number(currentVideo.views) || 0) * 11.2) * 0.45))} that's typical in this time frame.
-                      </p>
-                    </div>
-                  </StudioCard>
-
-                  <StudioCard title="How viewers found this video" subtitle="Traffic sources">
-                    <div style={{ padding: '4px 0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #303030', color: '#aaaaaa', fontSize: '12px' }}>
-                        <span>Traffic source</span>
-                        <span>% of views</span>
-                        <span>Views</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <span>YouTube search</span>
-                          <span style={{ color: '#aaaaaa' }}>81.1%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.811))} <StudioUpBadge />
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <span>YouTube recommendations</span>
-                          <span style={{ color: '#aaaaaa' }}>7.6%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.076))} <StudioDownBadge color="#aaaaaa" />
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', paddingLeft: '16px' }}>
-                          <span style={{ color: '#aaaaaa' }}>↳ YouTube Home</span>
-                          <span style={{ color: '#aaaaaa' }}>6.8%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.068))} <StudioDownBadge color="#aaaaaa" />
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', paddingLeft: '16px' }}>
-                          <span style={{ color: '#aaaaaa' }}>↳ Up next</span>
-                          <span style={{ color: '#aaaaaa' }}>0.8%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.008))} <StudioDownBadge color="#aaaaaa" />
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <span>Other YouTube features</span>
-                          <span style={{ color: '#aaaaaa' }}>6.9%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.069))} <span className="material-symbols-outlined" style={{ color: '#717171', fontSize: '20px' }}>remove</span>
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <span>Direct or unknown</span>
-                          <span style={{ color: '#aaaaaa' }}>1.1%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.011))} <span className="material-symbols-outlined" style={{ color: '#717171', fontSize: '20px' }}>remove</span>
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <span>Other</span>
-                          <span style={{ color: '#aaaaaa' }}>2.3%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {fmtV(Math.round(aggregated.views * 0.023))} <span className="material-symbols-outlined" style={{ color: '#717171', fontSize: '20px' }}>remove</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </StudioCard>
-                </>
-              ) : (
-                /* Your top content in this period Card */
-                <StudioCard title="Your top content in this period">
-                  <div className="top-content-table-container">
-                    <div className="top-content-header-row">
-                      <span className="col-content">Content</span>
-                      <span className="col-duration">
-                        Average view<br />duration
-                      </span>
-                      <span className="col-views">Views</span>
-                    </div>
-
-                    <div className="top-content-list">
-                      {[...videos]
-                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                        .slice(0, 3)
-                        .map((vid, idx) => {
-                          const avgDurSecs = vid.avgViewDurationSecs || 240;
-                          const totalViews = videos.reduce((s, v) => s + (v.views || 0), 0) || 1;
-                          const retentionPct = totalViews > 0
-                            ? `${((vid.views || 0) / totalViews * 100).toFixed(1)}%`
-                            : '0.0%';
-                          const mins = Math.floor(avgDurSecs / 60);
-                          const secs = String(avgDurSecs % 60).padStart(2, '0');
-                          const avgDurLabel = vid.avd || `${mins}:${secs}`;
-                          const isRecent = vid.publishDate >= '2026-08-01' || vid.date >= '2026-08-01';
-                          return (
-                            <div className="top-content-row" key={vid.id || idx}>
-                              <span className="row-number">{idx + 1}</span>
-                              <img src={vid.thumbnail} alt="" className="row-thumb" />
-                              <div className="row-info">
-                                <div className="row-title" title={vid.title}>{vid.title}</div>
-                                <div className="row-meta-line">
-                                  <span className="row-date">{vid.publishDate || vid.date || ''}</span>
-                                  {isRecent && <span className="recent-upload-badge">Recent upload</span>}
-                                </div>
-                              </div>
-                              <span className="row-duration">
-                                {avgDurLabel} <span className="row-pct">({retentionPct})</span>
-                              </span>
-                              <span className="row-views">{Number(vid.views || 0).toLocaleString('en-IN')}</span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </StudioCard>
-              )}
-            </div>
-
-            {/* Right Column: Realtime, Podcast & Latest Content Rail */}
-            <aside className="overview-right-rail">
-              {/* Realtime Card */}
-              <div className="studio-analytics-card realtime-rail-card">
-                <div className="realtime-header-title">Realtime</div>
-                <div className="realtime-status-row">
-                  <span className="live-dot" /> Updating live
-                </div>
-                <div className="realtime-big-number">
-                  {isVideoMode
-                    ? realtime48hViews.toLocaleString('en-IN')
-                    : (channelInfo.realtimeSubscribers ? Number(channelInfo.realtimeSubscribers).toLocaleString('en-IN') : (channelInfo.subscribersFormatted || (channelInfo.subscribers ? channelInfo.subscribers.toLocaleString('en-IN') : (aggregated.subscribersNetFormatted || '0'))))}
-                </div>
-                <div className="realtime-sub-text">{isVideoMode ? 'Views · Last 48 hours' : 'Subscribers'}</div>
-
-                {!isVideoMode && <button className="see-live-count-btn">See live count</button>}
-
-                {!isVideoMode && <hr className="studio-divider" />}
-
-                {!isVideoMode && <div className="realtime-big-number">{realtime48hViews.toLocaleString('en-IN')}</div>}
-                {!isVideoMode && <div className="realtime-sub-text">Views · Last 48 hours</div>}
-
-                <div className="realtime-bar-chart-box">
-                  {realtime48hViews > 0 ? (
-                    <ResponsiveContainer width="100%" height={60}>
-                      <BarChart data={realtimeScaledBars}>
-                        <Bar dataKey="views" fill="#35b7e6" radius={[1, 1, 0, 0]} isAnimationActive={false} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div style={{ height: '48px', display: 'flex', alignItems: 'flex-end', borderBottom: '1px solid #cccccc', marginBottom: '4px' }} />
-                  )}
-                  <div className="chart-time-labels">
-                    <span>-48 h</span>
-                    <span>Now</span>
-                  </div>
-                </div>
-
-                {isVideoMode ? (
-                  <div className="realtime-top-content-section" style={{ marginTop: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#aaaaaa', marginBottom: '8px' }}>
-                      <span>Top traffic sources</span>
-                      <span>% of views</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                      <span>YouTube search</span>
-                      <span>{videoTrafficSources.search}%</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                      <span>Browse features</span>
-                      <span>{videoTrafficSources.browse}%</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                      <span>Channel pages</span>
-                      <span>{videoTrafficSources.channel}%</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                      <span>Other YouTube features</span>
-                      <span>{videoTrafficSources.other}%</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                      <span>External</span>
-                      <span>{videoTrafficSources.external}%</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="realtime-top-content-section">
-                    <div className="top-content-rail-header">
-                      <span>Top content</span>
-                      <span>Views</span>
-                    </div>
-                    {videos.slice(0, 3).map(v => (
-                      <div className="rail-content-row" key={v.id}>
-                        <img src={v.thumbnail} alt="" />
-                        <span className="rail-title">{v.title}</span>
-                        <span className="rail-val">{Number(v.realtimeViews48h !== undefined && v.realtimeViews48h !== null && Number(v.realtimeViews48h) > 0 ? v.realtimeViews48h : (v.views || 0)).toLocaleString('en-IN')}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button className="see-more-btn margin-top-12">See more</button>
-              </div>
-
-              {/* Podcast Card */}
-              <div className="studio-analytics-card podcast-rail-card">
-                <h3>Podcast</h3>
-                <div className="podcast-info-row">
-                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Podcast" className="podcast-thumb" />
-                  <div>
-                    <div className="podcast-title">Success Story</div>
-                    <div className="podcast-sub">Updated 6 months ago</div>
-                  </div>
-                </div>
-                <div className="stat-flex-row">
-                  <span>Views</span>
-                  <strong>{videos[0]?.views ? Math.round(Number(videos[0].views) * 0.05).toLocaleString('en-IN') : '62'}</strong>
-                </div>
-                <div className="stat-flex-row">
-                  <span>Watch time (hours)</span>
-                  <strong>{videos[0]?.watchTimeHrs ? (Number(videos[0].watchTimeHrs) * 0.05).toFixed(1) : '1.5'}</strong>
-                </div>
-                <button className="see-podcast-btn">See podcast analytics</button>
-              </div>
-
-              {/* Latest Content Card */}
-              <div className="studio-analytics-card latest-content-card">
-                <h3>Latest content</h3>
-                <div className="latest-video-banner">
-                  <img src={currentVideo.thumbnail || "/thumbnails/1.webp"} alt="Latest video" />
-                  <div className="latest-video-overlay-title">
-                    {currentVideo.title || "Latest Content"}
-                  </div>
-                </div>
-                <div className="latest-time-text">First 13 days 3 hours</div>
-
-                <div className="stat-flex-row">
-                  <span>Views</span>
-                  <span className="stat-val-with-icon">
-                    {currentVideo.viewsFormatted || fmtV(currentVideo.views || 44900)} <span className="green-arrow-small">↑</span>
-                  </span>
-                </div>
-                <div className="stat-flex-row">
-                  <span>Impressions click-through rate</span>
-                  <span className="stat-val-with-icon">
-                    {currentVideo.ctr ? `${currentVideo.ctr}%` : '9.0%'} <span className="green-arrow-small">↑</span>
-                  </span>
-                </div>
-                <div className="stat-flex-row">
-                  <span>Average view duration</span>
-                  <span className="stat-val-with-icon">
-                    {currentVideo.avgViewDuration || currentVideo.avd || '1:45'} <span className="gray-arrow-small">↓</span>
-                  </span>
-                </div>
-
-                <button className="see-video-analytics-btn">See video analytics</button>
-              </div>
-            </aside>
-          </div>
-        </div>
-      )}
-
-      {/* REACH TAB (Video Analytics Mode) */}
-      {activeTab === 'Reach' && (
-        <div className="reach-tab-page">
-          <div className="analytics-card hero-chart-card">
-            <div className="metrics-selector-row">
-              <div className={`metric-selector-item ${selectedMetric === 'impressions' ? 'active' : ''}`} onClick={() => setSelectedMetric('impressions')}>
-                <div className="metric-selector-label">Impressions</div>
-                <div className="metric-selector-val"><span>{aggregated.impressionsFormatted || fmtV(aggregated.impressions)}</span></div>
-              </div>
-              <div className={`metric-selector-item ${selectedMetric === 'ctr' ? 'active' : ''}`} onClick={() => setSelectedMetric('ctr')}>
-                <div className="metric-selector-label">Impressions click-through rate</div>
-                <div className="metric-selector-val"><span>{currentVideo.ctr ? `${currentVideo.ctr}%` : '9.0%'}</span></div>
-              </div>
-              <div className={`metric-selector-item ${selectedMetric === 'views' ? 'active' : ''}`} onClick={() => setSelectedMetric('views')}>
-                <div className="metric-selector-label">Views</div>
-                <div className="metric-selector-val">
-                  <span>{aggregated.viewsFormatted || '45.1K'}</span>
-                  <StudioCheckBadge style={{ marginLeft: '6px' }} />
-                </div>
-                <div className="metric-sub-label">{fmtV(Math.round(aggregated.views * 0.34))} more than usual</div>
-              </div>
-              <div className={`metric-selector-item ${selectedMetric === 'uniqueViewers' ? 'active' : ''}`} onClick={() => setSelectedMetric('uniqueViewers')}>
-                <div className="metric-selector-label">Unique viewers <span className="material-symbols-outlined card-info-icon">info</span></div>
-                <div className="metric-selector-val"><span>{fmtV(Math.round(aggregated.views * 0.78))}</span></div>
-              </div>
-            </div>
-            <div className="chart-container-wrapper">
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={dailyWithTypical} margin={{ top: 16, right: 35, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#717171"
-                    tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    tickMargin={8}
-                    padding={{ left: 16, right: 16 }}
-                    interval={0}
-                    ticks={chartTicks}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatXAxisTick}
-                  />
-                  <YAxis
-                    orientation="right"
-                    stroke="#717171"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={48}
-                    allowDecimals={false}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatYAxisValue}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="linear"
-                    dataKey={selectedMetric === 'impressions' ? 'typicalUpper' : 'views'}
-                    stroke="#818cf8"
-                    strokeWidth={1.85}
-                    fill="rgba(129, 140, 248, 0.15)"
-                    isAnimationActive={false}
-                  />
-                  {videoUploadPoints.map((v, i) => (
-                    <ReferenceDot
-                      key={`marker-content-${v.id}-${v.date}-${i}`}
-                      x={v.date}
-                      y={0}
-                      r={0}
-                      isFront={true}
-                      shape={(props) => {
-                        if (!props.cx || !props.cy) return null;
-                        return (
-                          <g transform={`translate(${props.cx - 9}, ${props.cy - 10})`} style={{ cursor: 'pointer' }}>
-                            <title>{`${v.title} (${v.date})`}</title>
-                            <rect x="0" y="0" width="18" height="14" rx="2" fill="#303030" stroke="#555555" strokeWidth="1" />
-                            {v.count > 1 ? (
-                              <text x="9" y="10.5" fill="#ffffff" fontSize="10" fontWeight="600" textAnchor="middle" fontFamily="Roboto, Inter, sans-serif">{v.count}</text>
-                            ) : (
-                              <polygon points="7,4 12,7 7,10" fill="#ffffff" />
-                            )}
-                          </g>
-                        );
-                      }}
-                    />
                   ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card-footer-action">
-              <button className="see-more-btn">See more</button>
-            </div>
-          </div>
-
-          <div className="studio-two-column margin-top-20">
-            <div className="audience-col">
-              <StudioCard title="How viewers find this video" subtitle="Views · Since published">
-                <div className="how-viewers-find-container">
-                  <div className="donut-chart-wrapper">
-                    <PieChart width={140} height={140}>
-                      <Pie isAnimationActive={false} data={[{ name: 'Search', value: 81.2 }, { name: 'Browse', value: 8.0 }, { name: 'Other', value: 6.9 }, { name: 'Direct', value: 1.1 }, { name: 'External', value: 0.9 }, { name: 'Others', value: 2.0 }]} cx={65} cy={65} innerRadius={42} outerRadius={62} dataKey="value">
-                        <Cell fill="#818cf8" /><Cell fill="#a855f7" /><Cell fill="#38bdf8" /><Cell fill="#6366f1" /><Cell fill="#c084fc" /><Cell fill="#475569" />
-                      </Pie>
-                    </PieChart>
-                    <div className="donut-center-label">Traffic<br />Sources</div>
-                  </div>
-                  <div className="traffic-sources-bars">
-                    <FormatDistributionRow label="YouTube search" value="81.2%" maxVal={100} barColor="#818cf8" />
-                    <FormatDistributionRow label="Browse features" value="8.0%" maxVal={100} barColor="#a855f7" />
-                    <FormatDistributionRow label="Other YouTube features" value="6.9%" maxVal={100} barColor="#38bdf8" />
-                    <FormatDistributionRow label="Direct or unknown" value="1.1%" maxVal={100} barColor="#6366f1" />
-                    <FormatDistributionRow label="External" value="0.9%" maxVal={100} barColor="#c084fc" />
-                    <FormatDistributionRow label="Others" value="2.0%" maxVal={100} barColor="#475569" />
-                  </div>
                 </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="External sites or apps" subtitle="Views · Since published">
-                <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '8px' }}>Proportion of your total traffic: <strong>0.9%</strong></div>
-                <FormatDistributionRow label="WhatsApp" value="50.0%" maxVal={100} barColor="#818cf8" />
-                <FormatDistributionRow label="whatsapp.com" value="19.4%" maxVal={100} barColor="#818cf8" />
-                <FormatDistributionRow label="Google Search" value="13.0%" maxVal={100} barColor="#818cf8" />
-                <FormatDistributionRow label="WhatsApp Business" value="6.4%" maxVal={100} barColor="#818cf8" />
-                <FormatDistributionRow label="instagram.com" value="1.5%" maxVal={100} barColor="#818cf8" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="Content suggesting this video" subtitle="Views · Since published">
-                <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '8px' }}>Proportion of your total traffic: <strong>0.8%</strong></div>
-                <FormatDistributionRow label={currentVideo.title ? (currentVideo.title.length > 45 ? currentVideo.title.substring(0, 45) + "..." : currentVideo.title) : "This video"} value="4.4%" maxVal={10} barColor="#818cf8" />
-                <FormatDistributionRow label="Why Is There Still Another Woman in His Life?..." value="4.2%" maxVal={10} barColor="#818cf8" />
-                <FormatDistributionRow label="Signs He Truly Loves You Deeply..." value="4.2%" maxVal={10} barColor="#818cf8" />
-                <FormatDistributionRow label="Relationship Truths You Need To Know..." value="2.5%" maxVal={10} barColor="#818cf8" />
-                <FormatDistributionRow label="Understanding Men in Difficult Relationships..." value="1.9%" maxVal={10} barColor="#818cf8" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="Playlists featuring this video" subtitle="Views · Since published">
-                <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '8px' }}>Proportion of your total traffic: <strong>0.1%</strong></div>
-                <p style={{ color: '#aaa', fontSize: '13px', padding: '12px 0' }}>Not enough traffic data to show this report</p>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-            </div>
-
-            <div className="audience-col">
-              <StudioCard title="Impressions and how they led to watch time" subtitle={`Data available ${dateRangeLabel} (${(daily || []).length} days)`}>
-                <div className="youtube-funnel-container">
-                  <div className="funnel-level level-1">
-                    <div className="funnel-label">Impressions</div>
-                    <div className="funnel-value">{aggregated.impressionsFormatted || fmtV(aggregated.impressions)}</div>
-                  </div>
-                  <div className="funnel-mid-note">
-                    15.6% from YouTube recommending your content <span className="material-symbols-outlined card-info-icon">info</span>
-                  </div>
-                  <div className="funnel-level level-2">
-                    <div className="funnel-text">{currentVideo.ctr ? `${currentVideo.ctr}%` : '9.0%'} click-through rate</div>
-                  </div>
-                  <div className="funnel-level level-3">
-                    <div className="funnel-label">Views from impressions</div>
-                    <div className="funnel-value">{aggregated.viewsFormatted}</div>
-                  </div>
-                  <div className="funnel-level level-4">
-                    <div className="funnel-text">{currentVideo.avgViewDuration || currentVideo.avd || '1:48'} average view duration</div>
-                  </div>
-                  <div className="funnel-level level-5">
-                    <div className="funnel-label">Watch time from impressions (hours)</div>
-                    <div className="funnel-value">{(aggregated.watchTimeHrsFormatted || '').replace(/\s*hrs\s*/gi, '')}</div>
-                  </div>
-                </div>
-              </StudioCard>
-
-              <StudioCard title="Bell notifications sent" subtitle="Since published">
-                <div className="bell-notification-items">
-                  <div className="bell-item">
-                    <span className="material-symbols-outlined bell-icon">notifications</span>
-                    <div className="bell-info">
-                      <div className="bell-title">Mobile push notifications</div>
-                      <div className="bell-subtext">Excluding inbox delivery <span className="material-symbols-outlined card-info-icon">info</span></div>
-                    </div>
-                    <div className="bell-val">{fmtV(Math.round((channelInfo.subscribers || 412850) * 0.07))}</div>
-                  </div>
-                  <div className="bell-item">
-                    <span className="material-symbols-outlined bell-icon">notifications_active</span>
-                    <div className="bell-info">
-                      <div className="bell-title">Notification click-through rate</div>
-                      <div className="bell-subtext">Typical on YouTube: 0.5% – 2.5%</div>
-                    </div>
-                    <div className="bell-val">0.8%</div>
-                  </div>
-                  <div className="bell-item">
-                    <span className="material-symbols-outlined bell-icon">bar_chart</span>
-                    <div className="bell-info"><div className="bell-title">Views from bell notifications</div></div>
-                    <div className="bell-val">{Math.max(1, Math.round(aggregated.views * 0.001)).toLocaleString('en-IN')}</div>
-                  </div>
-                </div>
-              </StudioCard>
-
-              <StudioCard title="YouTube search terms" subtitle="Views · Since published">
-                <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '8px' }}>Proportion of your total traffic: <strong>81.2%</strong></div>
-                <FormatDistributionRow label="motu patlu ai video kaise banaye" value="17.3%" maxVal={20} barColor="#818cf8" />
-                <FormatDistributionRow label="how to make motu patlu ai video" value="4.8%" maxVal={20} barColor="#818cf8" />
-                <FormatDistributionRow label="ai motu patlu video kaise banaye" value="2.5%" maxVal={20} barColor="#818cf8" />
-                <FormatDistributionRow label="how to create motu patlu ai video" value="1.9%" maxVal={20} barColor="#818cf8" />
-                <FormatDistributionRow label="motu patlu ai video editing" value="1.9%" maxVal={20} barColor="#818cf8" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ENGAGEMENT TAB (Video Analytics Mode) */}
-      {activeTab === 'Engagement' && (
-        <div className="engagement-tab-page">
-          <div className="analytics-card hero-chart-card">
-            <div className="metrics-selector-row">
-              <div className={`metric-selector-item ${selectedMetric === 'watchTimeHrs' ? 'active' : ''}`} onClick={() => setSelectedMetric('watchTimeHrs')}>
-                <div className="metric-selector-label">Watch time (hours)</div>
-                <div className="metric-selector-val">
-                  <span>{(aggregated.watchTimeHrsFormatted || '1.3K').replace(/\s*hrs\s*/gi, '')}</span>
-                  <StudioCheckBadge style={{ marginLeft: '6px' }} />
-                </div>
-                <div className="metric-sub-label">About the same as usual</div>
+                <SegmentedStatList segments={deviceSegments} />
               </div>
-              <div className={`metric-selector-item ${selectedMetric === 'avgViewDuration' ? 'active' : ''}`} onClick={() => setSelectedMetric('avgViewDuration')}>
-                <div className="metric-selector-label">Average view duration</div>
-                <div className="metric-selector-val">
-                  <span>{currentVideo.avgViewDuration || currentVideo.avd || '1:45'}</span>
-                  <StudioDownBadge color="#aaaaaa" style={{ marginLeft: '6px' }} />
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Watch time from subscribers</h3>
+                    <span className="an26-card-sub">Watch time (hours) · {snapshot?.dateRangeLabel}</span>
+                  </div>
                 </div>
-                <div className="metric-sub-label">About the same as usual</div>
+                <div className="an26-wt-sub-bar-track">
+                  <div className="an26-wt-sub-bar-fill" style={{ width: `${subWatchShare}%` }} />
+                </div>
+                <div className="an26-wt-sub-split">
+                  <div>
+                    <strong className="yt-display-font">{subWatchShare}%</strong>
+                    <span>Subscribed</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <strong className="yt-display-font">{notSubWatchShare}%</strong>
+                    <span>Not subscribed</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="chart-container-wrapper">
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={dailyWithTypical} margin={{ top: 16, right: 35, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#717171"
-                    tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    tickMargin={8}
-                    padding={{ left: 16, right: 16 }}
-                    interval={0}
-                    ticks={chartTicks}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatXAxisTick}
-                  />
-                  <YAxis
-                    orientation="right"
-                    stroke="#717171"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={48}
-                    allowDecimals={false}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatYAxisValue}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="linear"
-                    dataKey="watchTimeHrs"
-                    stroke="#ec4899"
-                    strokeWidth={1.85}
-                    fill="rgba(236, 72, 153, 0.15)"
-                    isAnimationActive={false}
-                  />
-                  {videoUploadPoints.map((v, i) => (
-                    <ReferenceDot
-                      key={`marker-engagement-${v.id}-${v.date}-${i}`}
-                      x={v.date}
-                      y={0}
-                      r={0}
-                      isFront={true}
-                      shape={(props) => {
-                        if (!props.cx || !props.cy) return null;
-                        return (
-                          <g transform={`translate(${props.cx - 9}, ${props.cy - 10})`} style={{ cursor: 'pointer' }}>
-                            <title>{`${v.title} (${v.date})`}</title>
-                            <rect x="0" y="0" width="18" height="14" rx="2" fill="#303030" stroke="#555555" strokeWidth="1" />
-                            {v.count > 1 ? (
-                              <text x="9" y="10.5" fill="#ffffff" fontSize="10" fontWeight="600" textAnchor="middle" fontFamily="Roboto, Inter, sans-serif">{v.count}</text>
-                            ) : (
-                              <polygon points="7,4 12,7 7,10" fill="#ffffff" />
-                            )}
-                          </g>
-                        );
-                      }}
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card-footer-action">
-              <button className="see-more-btn">See more</button>
-            </div>
-          </div>
+          </>
+        )}
 
-          <div className="studio-two-column margin-top-20">
-            <div className="audience-col">
-              <StudioCard title="Hype" subtitle="First 7 days">
-                <div style={{ display: 'flex', gap: '32px', padding: '12px 0' }}>
-                  <div>
-                    <div style={{ fontSize: '24px', fontWeight: '600' }}>{fmtV(Math.round(aggregated.views * 0.1))}</div>
-                    <div style={{ fontSize: '12px', color: '#aaa' }}>Hype points</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '24px', fontWeight: '600' }}>{Math.max(1, Math.round(aggregated.views * 0.0016)).toLocaleString('en-IN')}</div>
-                    <div style={{ fontSize: '12px', color: '#aaa' }}>Hypes</div>
-                  </div>
-                </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="Audience retention" subtitle="Since uploaded (lifetime)">
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0' }}>
-                  <span style={{ color: '#aaa' }}>Average view duration</span>
-                  <strong>{currentVideo.avgViewDuration || currentVideo.avd || '1:45'}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0' }}>
-                  <span style={{ color: '#aaa' }}>Average percentage viewed</span>
-                  <strong>
-                    {(() => {
-                      const dSecs = currentVideo.durationSecs || parseAvdToSeconds(currentVideo.duration, 618);
-                      const aSecs = currentVideo.avgViewDurationSecs || parseAvdToSeconds(currentVideo.avgViewDuration || currentVideo.avd, 105);
-                      return (dSecs > 0 && aSecs > 0) ? `${Math.min(100, Math.round((aSecs / dSecs) * 1000) / 10)}%` : '17.0%';
-                    })()}
-                  </strong>
-                </div>
-                <div style={{ marginTop: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#aaa', marginBottom: '8px' }}>Key moments for audience retention</div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                    <button style={{ backgroundColor: '#0f0f0f', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '4px 12px', fontSize: '12px', fontWeight: '500' }}>Intro</button>
-                    <button style={{ backgroundColor: '#f2f2f2', color: '#0f0f0f', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '4px 12px', fontSize: '12px' }}>2 Spikes</button>
-                    <button style={{ backgroundColor: '#f2f2f2', color: '#0f0f0f', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '4px 12px', fontSize: '12px' }}>Dip</button>
-                  </div>
-                  <div style={{ width: '100%', height: '180px', backgroundColor: '#f2f2f2', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={currentVideo.thumbnail || '/thumbnails/1.webp'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                </div>
-              </StudioCard>
-            </div>
-
-            <div className="audience-col">
-              <StudioCard title="Likes (vs. dislikes)" subtitle="Since published">
-                <FormatDistributionRow label={currentVideo.title ? (currentVideo.title.length > 45 ? currentVideo.title.substring(0, 45) + "..." : currentVideo.title) : "This video"} value="96.5%" maxVal={100} barColor="#ec4899" />
-                <FormatDistributionRow label="Channel average" value="97.7%" maxVal={100} barColor="#717171" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="End screen element click rate" subtitle="Since uploaded (lifetime)">
-                <FormatDistributionRow label={currentVideo.title ? (currentVideo.title.length > 45 ? currentVideo.title.substring(0, 45) + "..." : currentVideo.title) : "This video"} value="1.0%" maxVal={5} barColor="#ec4899" />
-                <FormatDistributionRow label="Channel average" value="1.7%" maxVal={5} barColor="#717171" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              <StudioCard title="Top Remixed" subtitle="Shorts created using parts of this video · Since published">
-                <div style={{ display: 'flex', gap: '32px', padding: '12px 0' }}>
-                  <div>
-                    <div style={{ fontSize: '24px', fontWeight: '600' }}>{Math.max(1, Math.round((currentVideo.views || 1000) * 0.0002)).toLocaleString('en-IN')}</div>
-                    <div style={{ fontSize: '12px', color: '#aaa' }}>Remix views</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '24px', fontWeight: '600' }}>{Math.max(1, Math.round((currentVideo.views || 1000) * 0.00003)).toLocaleString('en-IN')}</div>
-                    <div style={{ fontSize: '12px', color: '#aaa' }}>Remixes</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
-                  <img src={currentVideo.thumbnail || '/thumbnails/1.webp'} alt="" style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '500' }}>#saudiarabia ##</div>
-                    <div style={{ fontSize: '11px', color: '#aaa' }}>Alim · 6 views · 1 week ago</div>
-                  </div>
-                </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CONTENT TAB */}
-      {activeTab === 'Content' && (
-        <div className="content-tab-page">
-          {/* Sub Navigation Pills */}
-          <div className="content-sub-tabs">
-            {['All', 'Videos', 'Shorts', 'Live', 'Posts', 'Playlists', 'Podcasts'].map(sub => (
-              <button
-                key={sub}
-                className={`sub-tab-pill ${contentSubTab === sub ? 'active' : ''}`}
-                onClick={() => setContentSubTab(sub)}
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-
-          {/* Top 3 Metric Breakdown Cards */}
-          <div className="studio-three-grid">
-            <StudioCard title="New viewers" subtitle="Last 28 days" infoIcon={true}>
-              <FormatDistributionRow label="Videos" value={Math.round(aggregated.views * 0.45)} formattedValue={fmtV(aggregated.views * 0.45)} maxVal={aggregated.views} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Shorts" value={Math.round(aggregated.views * 0.05)} formattedValue={fmtV(aggregated.views * 0.05)} maxVal={aggregated.views} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Live stream" value={Math.max(1, Math.round(aggregated.views * 0.0002))} formattedValue={String(Math.max(1, Math.round(aggregated.views * 0.0002)))} maxVal={aggregated.views} barColor="#8b5cf6" />
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-
-            <StudioCard title="Regular viewers" subtitle="Last 28 days" infoIcon={true}>
-              <FormatDistributionRow label="Videos" value={Math.round(aggregated.views * 0.015)} formattedValue={fmtV(aggregated.views * 0.015)} maxVal={aggregated.views * 0.02} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Shorts" value={Math.max(1, Math.round(aggregated.views * 0.001))} formattedValue={fmtV(Math.max(1, Math.round(aggregated.views * 0.001)))} maxVal={aggregated.views * 0.02} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Live stream" value={Math.max(1, Math.round(aggregated.views * 0.0001))} formattedValue={String(Math.max(1, Math.round(aggregated.views * 0.0001)))} maxVal={aggregated.views * 0.02} barColor="#8b5cf6" />
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-
-            <StudioCard title="Subscribers" subtitle="Last 28 days">
-              <FormatDistributionRow label="Videos" value={aggregated.subscribersGained} formattedValue={`+${Number(aggregated.subscribersGained || 0).toLocaleString('en-IN')}`} maxVal={(aggregated.subscribersGained || 1) * 1.1} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Shorts" value={Math.max(1, Math.round((aggregated.subscribersGained || 100) * 0.015))} formattedValue={`+${Math.max(1, Math.round((aggregated.subscribersGained || 100) * 0.015)).toLocaleString('en-IN')}`} maxVal={(aggregated.subscribersGained || 1) * 1.1} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Live stream" value={0} formattedValue="0" maxVal={(aggregated.subscribersGained || 1) * 1.1} barColor="#8b5cf6" />
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-          </div>
-
-          {/* Middle Row: 2 Cards */}
-          <div className="studio-two-column margin-top-20">
-            <StudioCard title="Views" subtitle="Last 28 days">
-              <FormatDistributionRow label="Videos" value={Math.round(aggregated.views * 0.82)} formattedValue={`${fmtV(aggregated.views * 0.82)} (82.0%)`} maxVal={aggregated.views} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Shorts" value={Math.round(aggregated.views * 0.18)} formattedValue={`${fmtV(aggregated.views * 0.18)} (18.0%)`} maxVal={aggregated.views} barColor="#c084fc" />
-              <FormatDistributionRow label="Live stream" value={Math.round(aggregated.views * 0.002)} formattedValue={`${Math.round(aggregated.views * 0.002).toLocaleString('en-IN')} (0.2%)`} maxVal={aggregated.views} barColor="#c084fc" />
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-
-            <StudioCard title="Published content" subtitle="Last 28 days" infoIcon={true}>
-              <FormatDistributionRow label="Videos" value={videos.length} formattedValue={String(videos.length)} maxVal={videos.length + 2} barColor="#8b5cf6" />
-              <FormatDistributionRow label="Shorts" value={1} formattedValue="1" maxVal={videos.length + 2} barColor="#c084fc" />
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-          </div>
-
-          {/* Lower Grid: Typical views, Viewers across formats, Funnel, Traffic Sources, Remixed */}
-          <div className="studio-two-column margin-top-20">
-            {/* Typical Views */}
-            <StudioCard title="Typical views" subtitle="First 28 days">
-              <div className="typical-views-list">
-                <div className="typical-row">
-                  <span>Videos</span>
-                  <strong>13K–50.1K</strong>
-                </div>
-                <div className="typical-row">
-                  <span>Live stream</span>
-                  <strong>640–1.1K</strong>
-                </div>
-                <div className="typical-row">
-                  <span>Shorts</span>
-                  <strong>--</strong>
-                </div>
+        <h2 className="an26-section-h2" style={{ marginBottom: 14 }}>Demographics</h2>
+        <div className="an26-bento-3" style={{ marginBottom: 22 }}>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Top geographies</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
               </div>
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
-
-            {/* Viewers across formats */}
-            <StudioCard title="Viewers across formats" subtitle="Returning viewers · Last 28 days">
-              <div className="card-filter-pills">
-                {['Videos · Shorts', 'Videos · Live', 'Shorts · Live'].map(f => (
+            </div>
+            {!isVideoMode && (
+              <div className="an26-pill-tabs" style={{ marginBottom: 14 }}>
+                {['all', 'videos', 'shorts', 'live'].map((t) => (
                   <button
-                    key={f}
-                    className={`filter-chip ${audienceFormatFilter === f ? 'active' : ''}`}
-                    onClick={() => setAudienceFormatFilter(f)}
+                    key={t}
+                    type="button"
+                    className={`an26-pill-filter ${demoGeoTab === t ? 'active' : ''}`}
+                    onClick={() => setDemoGeoTab(t)}
                   >
-                    {f}
+                    {t[0].toUpperCase() + t.slice(1)}
                   </button>
                 ))}
               </div>
-              <div className="format-segmented-bar">
-                <div className="segment seg-1" style={{ width: '75%' }} />
-                <div className="segment seg-2" style={{ width: '12%' }} />
-                <div className="segment seg-3" style={{ width: '13%' }} />
-              </div>
-              <div className="format-legend-list">
-                <div className="legend-item"><span className="dot dot-purple" /> Videos only <strong>75%</strong></div>
-                <div className="legend-item"><span className="dot dot-white" /> Watching both <strong>12%</strong></div>
-                <div className="legend-item"><span className="dot dot-lavender" /> Shorts only <strong>13%</strong></div>
-              </div>
-            </StudioCard>
+            )}
+            <StudioProgressList items={isVideoMode ? geoItems.slice(0, 1) : geoItems} />
+          </div>
 
-            {/* Funnel: Impressions and how they led to watch time */}
-            <StudioCard title="Impressions and how they led to watch time" subtitle={`Data available ${dateRangeLabel} (${(daily || []).length} days)`}>
-              <div className="youtube-funnel-container">
-                <div className="funnel-level level-1">
-                  <div className="funnel-label">Impressions</div>
-                  <div className="funnel-value">{aggregated.impressionsFormatted}</div>
-                </div>
-                <div className="funnel-mid-note">
-                  38.1% from YouTube recommending your content <span className="material-symbols-outlined card-info-icon">info</span>
-                </div>
-                <div className="funnel-level level-2">
-                  <div className="funnel-text">{aggregated.ctr}% click-through rate</div>
-                </div>
-                <div className="funnel-level level-3">
-                  <div className="funnel-label">Views from impressions</div>
-                  <div className="funnel-value">{aggregated.viewsFormatted}</div>
-                </div>
-                <div className="funnel-level level-4">
-                  <div className="funnel-text">2:13 average view duration</div>
-                </div>
-                <div className="funnel-level level-5">
-                  <div className="funnel-label">Watch time from impressions (hours)</div>
-                  <div className="funnel-value">{(aggregated.watchTimeHrsFormatted || '').replace(/\s*hrs\s*/gi, '')}</div>
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Age</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            {!isVideoMode && (
+              <div className="an26-pill-tabs" style={{ marginBottom: 14 }}>
+                {['all', 'videos', 'shorts'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`an26-pill-filter ${demoAgeTab === t ? 'active' : ''}`}
+                    onClick={() => setDemoAgeTab(t)}
+                  >
+                    {t[0].toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <StudioProgressList items={ageItems} />
+          </div>
+
+          <div className="an26-card">
+            <div className="an26-card-head">
+              <div>
+                <h3>Gender</h3>
+                <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            {!isVideoMode && (
+              <div className="an26-pill-tabs" style={{ marginBottom: 14 }}>
+                {['all', 'videos', 'shorts'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`an26-pill-filter ${demoGenderTab === t ? 'active' : ''}`}
+                    onClick={() => setDemoGenderTab(t)}
+                  >
+                    {t[0].toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isVideoMode ? (
+              <SegmentedStatList segments={genderItems} />
+            ) : (
+              <StudioProgressList items={genderItems} />
+            )}
+          </div>
+        </div>
+
+        <h2 className="an26-section-h2" style={{ marginBottom: 14 }}>
+          {isVideoMode ? 'Interests across your channel' : 'Watch behavior on other channels'}
+        </h2>
+        {isVideoMode ? (
+          <div className="an26-third-card an26-card" style={{ marginTop: 0 }}>
+            <div className="an26-card-head">
+              <div>
+                <h3>What your audience watches</h3>
+                <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+              </div>
+            </div>
+            <p className="an26-card-sub">Not enough data</p>
+          </div>
+        ) : (
+          <div className="an26-bento-3">
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Channels your audience watches</h3>
+                  <span className="an26-card-sub">Last 28 days</span>
                 </div>
               </div>
-            </StudioCard>
-
-            {/* How viewers find you */}
-            <StudioCard title="How viewers find you" subtitle="Views · Last 28 days">
-              <div className="how-viewers-find-container">
-                <div className="donut-chart-wrapper">
-                  <PieChart width={140} height={140}>
-                    <Pie
-                      isAnimationActive={false}
-                      data={trafficSources.length > 0 ? trafficSources.map(t => ({ name: t.source, value: t.percentage })) : [
-                        { name: 'Browse Features', value: 43 },
-                        { name: 'Suggested Videos', value: 24 },
-                        { name: 'YouTube Search', value: 18 },
-                        { name: 'Direct', value: 8 },
-                        { name: 'External', value: 7 }
-                      ]}
-                      cx={65}
-                      cy={65}
-                      innerRadius={42}
-                      outerRadius={62}
-                      dataKey="value"
+              <div className="an26-top-videos-list">
+                {otherChannelsList.map((ch) => (
+                  <div key={ch.name} className="an26-chan-watch-row">
+                    <div
+                      className="an26-chan-watch-avatar"
+                      style={{
+                        background: ch.bg,
+                        color: '#ffffff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
                     >
-                      <Cell fill="#38bdf8" />
-                      <Cell fill="#818cf8" />
-                      <Cell fill="#a855f7" />
-                      <Cell fill="#6366f1" />
-                      <Cell fill="#475569" />
-                    </Pie>
-                  </PieChart>
-                  <div className="donut-center-label">
-                    Traffic<br />Sources
+                      {ch.initials}
+                    </div>
+                    <div className="an26-chan-watch-meta">
+                      <strong>{ch.name}</strong>
+                      <span>{ch.subs}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>What your audience watches</h3>
+                  <span className="an26-card-sub">Last 7 days</span>
+                </div>
+              </div>
+              <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+                {['all', 'videos'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`an26-pill-filter ${otherWatchTab === t ? 'active' : ''}`}
+                    onClick={() => setOtherWatchTab(t)}
+                  >
+                    {t[0].toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="an26-top-videos-list">
+                {otherWatchedVideos.map((v) => (
+                  <div
+                    key={v.id}
+                    className="an26-top-video-row"
+                    onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_overview`)}
+                  >
+                    <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                    <div className="an26-tv-meta">
+                      <p>{v.title}</p>
+                    </div>
+                    <span className="an26-tv-views">{v.viewsFormatted || fmtV(v.views)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Sub-Hub: Revenue (Channel & Video)
+  if (hubMode === 'hub_revenue') {
+    const rawRevSeries = buildMetricSeries('revenue');
+    const totalRev = Number(
+      isVideoMode && currentVideo ? getVideoRevenueValue(currentVideo) : agg.revenue || 0
+    );
+    const revFactor =
+      !isVideoMode && revTab === 'Watch Page ads'
+        ? 0.86
+        : !isVideoMode && revTab === 'Shorts Feed ads'
+        ? 0.14
+        : !isVideoMode && (revTab === 'Supers & gifts' || revTab === 'Affiliate program')
+        ? 0
+        : 1;
+    const displayedRev = totalRev * revFactor;
+    const revSeries =
+      revFactor === 1
+        ? rawRevSeries
+        : rawRevSeries.map((pt) => ({
+            ...pt,
+            value: Number(((pt.value || 0) * revFactor).toFixed(2)),
+          }));
+
+    const channelRpm = parseRupeeNumber(agg.rpm, 105.44);
+    const videoRpm = parseRupeeNumber(currentVideo?.rpm ?? agg.rpm, 48.2);
+    const videoCpm = parseRupeeNumber(currentVideo?.cpm ?? agg.cpm, 92.4);
+
+    const allWaysItems = [
+      {
+        key: 'videos',
+        label: 'Watch Page ads',
+        pct: 86,
+        display: formatCompactINR(totalRev * 0.86),
+      },
+      {
+        key: 'shorts',
+        label: 'Shorts Feed ads',
+        pct: 14,
+        display: formatCompactINR(totalRev * 0.14),
+      },
+    ];
+    const visibleWaysItems =
+      waysFilter === 'all'
+        ? allWaysItems
+        : waysFilter === 'videos'
+        ? [{ ...allWaysItems[0], pct: 100 }]
+        : waysFilter === 'shorts'
+        ? [{ ...allWaysItems[1], pct: 100 }]
+        : [];
+
+    const contentEarnRev =
+      contentEarnTab === 'videos'
+        ? totalRev * 0.86
+        : contentEarnTab === 'shorts'
+        ? totalRev * 0.14
+        : 0;
+    const contentEarnViews =
+      contentEarnTab === 'videos'
+        ? Math.round((agg.views || 0) * 0.86)
+        : contentEarnTab === 'shorts'
+        ? Math.round((agg.views || 0) * 0.14)
+        : 0;
+    const contentEarnRpm =
+      contentEarnTab === 'videos'
+        ? channelRpm
+        : contentEarnTab === 'shorts'
+        ? Number((channelRpm * 0.22).toFixed(2))
+        : 0;
+
+    const filteredTopEarning = topEarningVideos
+      .filter((v) => {
+        const fmt = String(v.format || v.type || '').toLowerCase();
+        if (topEarnFilter === 'shorts') return fmt === 'short' || Boolean(v.isShort);
+        if (topEarnFilter === 'live') return fmt === 'live';
+        if (topEarnFilter === 'videos') return fmt !== 'short' && fmt !== 'live' && !v.isShort;
+        return true;
+      })
+      .slice(0, 5);
+
+    const monthlyItems = [
+      { label: 'November (ongoing)', pct: 32, weight: 0.24 },
+      { label: 'October', pct: 86, weight: 0.31 },
+      { label: 'September', pct: 58, weight: 0.19 },
+      { label: 'August', pct: 38, weight: 0.11 },
+      { label: 'July', pct: 30, weight: 0.09 },
+      { label: 'June', pct: 22, weight: 0.06 },
+    ].map((m) => ({
+      label: m.label,
+      pct: m.pct,
+      display: formatCompactINR(displayedRev * m.weight),
+    }));
+
+    return (
+      <div className="an26-page">
+        <div className="an26-subhub-header">
+          <button type="button" className="an26-back-btn" onClick={() => navigateHub('hub_overview')}>
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="yt-display-font">Revenue</span>
+          </button>
+          <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+            Advanced mode
+          </button>
+        </div>
+
+        {!isVideoMode && (
+          <div className="an26-pill-tabs" style={{ marginBottom: 18 }}>
+            {['all', 'Watch Page ads', 'Shorts Feed ads', 'Supers & gifts', 'Affiliate program'].map(
+              (t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`an26-pill-filter ${revTab === t ? 'active' : ''}`}
+                  onClick={() => setRevTab(t)}
+                >
+                  {t === 'all' ? 'All' : t}
+                </button>
+              )
+            )}
+          </div>
+        )}
+
+        <div className="an26-section-toolbar">
+          <h2 className="an26-section-h2">Key metrics</h2>
+          {renderDatePills()}
+        </div>
+
+        <div className="an26-card" style={{ marginBottom: 18 }}>
+          <div className="an26-card-head-ic">
+            <div>
+              <h3>Estimated revenue</h3>
+              <div className="an26-hero-kpi-inline">
+                <strong
+                  className="an26-kpi-big-num yt-display-font"
+                  title={formatINR(displayedRev)}
+                >
+                  {formatINR(displayedRev)}
+                </strong>
+                {!isVideoMode && rangeKey !== 'lifetime' && displayedRev > 0 && (
+                  <>
+                    <StudioUpBadge />
+                    <span className="an26-delta-muted" style={{ color: '#137333' }}>
+                      {formatCompactINR(displayedRev * 0.28)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <span className="material-symbols-outlined an26-clock-ic" title="Last few days processing">
+              schedule
+            </span>
+          </div>
+          <StudioLineMetricChart
+            data={revSeries}
+            metricKey="revenue"
+            height={220}
+            showProcessingZone
+            showUploadMarkers={!isVideoMode}
+          />
+        </div>
+
+        {isVideoMode ? (
+          <>
+            <div className="an26-bento-3">
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>How you make money</h3>
+                    <span className="an26-card-sub">Estimated · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <StudioProgressList
+                  items={[
+                    {
+                      label: 'Watch Page ads',
+                      pct: 100,
+                      display: formatCompactINR(totalRev),
+                    },
+                  ]}
+                />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Earnings by ad type</h3>
+                    <span className="an26-card-sub">YouTube ad revenue</span>
                   </div>
                 </div>
+                <SegmentedStatList
+                  segments={[
+                    { label: 'Skippable video ads', pct: 63.4, display: '63.4%' },
+                    { label: 'Display ads', pct: 26.7, display: '26.7%' },
+                    { label: 'Non-skippable video ads', pct: 8.1, display: '8.1%' },
+                    { label: 'Bumper ads', pct: 1.8, display: '1.8%' },
+                  ]}
+                />
+              </div>
 
-                <div className="traffic-sources-bars">
-                  {(trafficSources.length > 0 ? trafficSources : [
-                    { source: 'Browse Features', percentage: 43 },
-                    { source: 'Suggested Videos', percentage: 24 },
-                    { source: 'YouTube Search', percentage: 18 },
-                    { source: 'Direct', percentage: 8 },
-                    { source: 'External', percentage: 7 }
-                  ]).map((t, idx) => {
-                    const colors = ['#38bdf8', '#818cf8', '#a855f7', '#6366f1', '#475569'];
-                    return (
-                      <FormatDistributionRow
-                        key={t.source}
-                        label={t.source}
-                        value={`${t.percentage}%`}
-                        maxVal={50}
-                        barColor={colors[idx % colors.length]}
-                      />
-                    );
-                  })}
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Video performance</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <div
+                  className="an26-kpi-big-num yt-display-font"
+                  style={{ marginBottom: 4 }}
+                  title={formatINR(totalRev)}
+                >
+                  {formatCompactINR(totalRev)}
+                </div>
+                <p className="an26-card-sub" style={{ marginBottom: 14 }}>
+                  Estimated revenue
+                </p>
+                <div className="an26-rpm-cards">
+                  <div className="an26-rpm-row">
+                    <span>Engaged views</span>
+                    <span>{fmtV(Math.round((agg.views || 0) * 0.72))}</span>
+                  </div>
+                  <div className="an26-rpm-row">
+                    <span>Revenue per 1K engaged views (RPM)</span>
+                    <span>{formatINR(videoRpm)}</span>
+                  </div>
                 </div>
               </div>
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
+            </div>
 
-            {/* Top Remixed */}
-            <StudioCard title="Top Remixed" subtitle="Your content used to create Shorts · Last 28 days">
-              <div className="remixed-stats-row">
-                <div className="remix-stat">
-                  <span className="num">{Math.max(1, Math.round((videos[0]?.views || 1000) * 0.0002)).toLocaleString('en-IN')}</span>
-                  <span className="lbl">Remix views</span>
+            <div className="an26-bento-3" style={{ marginTop: 18 }}>
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Top affiliate products</h3>
+                    <span className="an26-card-sub">
+                      Estimated revenue · {snapshot?.dateRangeLabel}
+                    </span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
                 </div>
-                <div className="remix-stat">
-                  <span className="num">{Math.max(1, Math.round((videos[0]?.views || 1000) * 0.00003)).toLocaleString('en-IN')}</span>
-                  <span className="lbl">Remixes</span>
+                <p className="an26-card-sub" style={{ marginTop: 14 }}>
+                  Not enough data
+                </p>
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>How much advertisers pay</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <div className="an26-kpi-big-num yt-display-font" style={{ marginTop: 8, marginBottom: 4 }}>
+                  {formatINR(videoCpm)}
+                </div>
+                <p className="an26-card-sub">Playback-based cost for every 1K views (CPM)</p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="an26-bento-3">
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top earning</h3>
+                    <span className="an26-card-sub">
+                      Estimated revenue · {snapshot?.dateRangeLabel}
+                    </span>
+                  </div>
+                </div>
+                <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+                  {[
+                    { key: 'all', label: 'All' },
+                    { key: 'videos', label: 'Videos' },
+                    { key: 'shorts', label: 'Shorts' },
+                    { key: 'live', label: 'Live' },
+                  ].map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      className={`an26-pill-filter ${topEarnFilter === f.key ? 'active' : ''}`}
+                      onClick={() => setTopEarnFilter(f.key)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="an26-top-videos-list">
+                  {filteredTopEarning.length === 0 ? (
+                    <p className="an26-card-sub" style={{ padding: '12px 0' }}>
+                      No revenue data for this format in the selected period.
+                    </p>
+                  ) : (
+                    filteredTopEarning.map((v) => (
+                      <div
+                        key={v.id}
+                        className="an26-top-video-row"
+                        onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_revenue`)}
+                      >
+                        <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                        <div className="an26-tv-meta">
+                          <p>{v.title}</p>
+                        </div>
+                        <span className="an26-tv-views" title={formatINR(v.revNum || 0)}>
+                          {getVideoRevenueFormatted(v, true)}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-              <div className="remixed-item-row">
-                <img src={videos[0]?.thumbnail || "/thumbnails/1.webp"} alt="" className="remix-thumb" />
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Monthly revenue</h3>
+                    <span className="an26-card-sub">Estimated revenue</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <StudioProgressList items={monthlyItems} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Ways of earning</h3>
+                    <span className="an26-card-sub">
+                      Estimated revenue · {snapshot?.dateRangeLabel}
+                    </span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
+                  {[
+                    { key: 'all', label: 'All' },
+                    { key: 'videos', label: 'Videos' },
+                    { key: 'shorts', label: 'Shorts' },
+                    { key: 'live', label: 'Live' },
+                  ].map((w) => (
+                    <button
+                      key={w.key}
+                      type="button"
+                      className={`an26-pill-filter ${waysFilter === w.key ? 'active' : ''}`}
+                      onClick={() => setWaysFilter(w.key)}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+                {visibleWaysItems.length === 0 ? (
+                  <p className="an26-card-sub" style={{ padding: '12px 0' }}>
+                    No revenue recorded for Live in this period.
+                  </p>
+                ) : (
+                  <StudioProgressList items={visibleWaysItems} />
+                )}
+              </div>
+            </div>
+
+            <div className="an26-third-card an26-card">
+              <div className="an26-card-head">
                 <div>
-                  <div className="remix-title">{videos[0]?.title || "Why I Fired ChatGPT for a Week"}</div>
-                  <div className="remix-sub">8 remix views · 1 remixes</div>
+                  <h3>Content earnings</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
                 </div>
               </div>
-              <button className="see-more-btn margin-top-16">See more</button>
-            </StudioCard>
+              <div className="an26-pill-tabs" style={{ marginBottom: 14 }}>
+                {[
+                  { key: 'videos', label: 'Videos' },
+                  { key: 'shorts', label: 'Shorts' },
+                  { key: 'live', label: 'Live' },
+                ].map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`an26-pill-filter ${contentEarnTab === c.key ? 'active' : ''}`}
+                    onClick={() => setContentEarnTab(c.key)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <div
+                className="an26-kpi-big-num yt-display-font"
+                style={{ marginBottom: 2 }}
+                title={formatINR(contentEarnRev)}
+              >
+                {formatCompactINR(contentEarnRev)}
+              </div>
+              <p className="an26-card-sub" style={{ marginBottom: 16 }}>
+                Estimated revenue
+              </p>
+              <div className="an26-rpm-cards">
+                <div className="an26-rpm-row">
+                  <span>Engaged views</span>
+                  <span>{fmtV(contentEarnViews)}</span>
+                </div>
+                <div className="an26-rpm-row">
+                  <span>Revenue per 1K engaged views (RPM)</span>
+                  <span>{formatINR(contentEarnRpm)}</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // MAIN OVERVIEW HUB (Channel Insights OR Video Insights)
+  // =========================================================================
+  const hubCards = isVideoMode
+    ? [
+        { key: 'hub_reach', Icon: HubReachIcon, title: 'Reach' },
+        { key: 'hub_engagement', Icon: HubEngagementIcon, title: 'Engagement' },
+        { key: 'hub_audience', Icon: HubAudienceIcon, title: 'Audience' },
+        { key: 'hub_revenue', Icon: HubRevenueIcon, title: 'Revenue' },
+      ]
+    : [
+        { key: 'hub_content', Icon: HubContentIcon, title: 'Content' },
+        { key: 'hub_audience', Icon: HubAudienceIcon, title: 'Audience' },
+        { key: 'hub_revenue', Icon: HubRevenueIcon, title: 'Revenue' },
+        { key: 'hub_research', Icon: HubResearchIcon, title: 'Research' },
+      ];
+
+  const watchTimeDisplay = (
+    agg.watchTimeHrsFormatted || formatHoursValue(agg.watchTimeHrs || 0)
+  ).replace(/\s*hrs\s*/gi, '');
+  const revenueDisplay = agg.revenueFormatted || formatINR(agg.revenue || 0);
+  const showPeriodDelta = !isVideoMode && rangeKey !== 'lifetime';
+
+  const allKpis = [
+    {
+      key: 'views',
+      label: 'Views',
+      val: agg.viewsFormatted || fmtV(agg.views || 0),
+      delta: fmtV(Math.round((agg.views || 0) * 0.32)),
+      fullVal: formatCountComma(agg.views || 0),
+    },
+    {
+      key: 'watchTimeHrs',
+      label: 'Watch time (hours)',
+      val: watchTimeDisplay,
+      delta: formatHoursValue((agg.watchTimeHrs || 0) * 0.25),
+    },
+    {
+      key: 'subscribers',
+      label: 'Subscribers',
+      val: agg.subscribersNetFormatted || '+0',
+      delta: fmtV(Math.round(Math.abs(agg.subscribersNet || 0) * 0.35)),
+    },
+    {
+      key: 'revenue',
+      label: 'Estimated revenue',
+      val: revenueDisplay,
+      delta: formatCompactINR((agg.revenue || 0) * 0.28),
+      fullVal: formatINR(agg.revenue || 0),
+      clock: true,
+    },
+  ];
+
+  const activeKpiObj = allKpis.find((k) => k.key === heroMetric) || allKpis[0];
+  const secondaryKpis = allKpis.filter((k) => k.key !== activeKpiObj.key);
+
+  return (
+    <div className="an26-page">
+      {/* Header */}
+      <div className="an26-header">
+        <h1 className="an26-title yt-display-font">{isVideoMode ? 'Video insights' : 'Channel insights'}</h1>
+        <button type="button" className="an26-outline-pill" onClick={() => navigateHub('explore')}>
+          Advanced mode
+        </button>
+      </div>
+
+      {/* 4 Compact Single-Line Hub Pill Cards */}
+      <div className="an26-hub-cards-row">
+        {hubCards.map((card) => {
+          const HubIcon = card.Icon;
+          return (
+            <button
+              key={card.key}
+              type="button"
+              className="an26-hub-pill-card"
+              onClick={() => navigateHub(card.key)}
+            >
+              <HubIcon size={20} className="an26-hub-pill-ic" />
+              <span className="an26-hub-pill-title">{card.title}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Key Metrics Toolbar */}
+      <div className="an26-section-toolbar">
+        <h2 className="an26-section-h2">Key metrics</h2>
+        {renderDatePills()}
+      </div>
+
+      {/* Overview Main Bento: Left Hero + 3 Mini Cards | Right Separate Stacked Cards */}
+      <div className="an26-overview-grid">
+        <div className="an26-left-hero-stack">
+          <div className="an26-card">
+            <h3 className="an26-card-t-sm">{activeKpiObj.label}</h3>
+            <div className="an26-hero-kpi-inline">
+              <strong
+                className="an26-hero-big-num yt-display-font"
+                title={activeKpiObj.fullVal || activeKpiObj.val}
+              >
+                {activeKpiObj.val}
+              </strong>
+              {showPeriodDelta && <StudioUpBadge />}
+              {showPeriodDelta && <span className="an26-delta-muted">{activeKpiObj.delta}</span>}
+            </div>
+
+            <StudioLineMetricChart
+              data={heroChartData}
+              metricKey={heroMetric}
+              height={215}
+              showTypical={isVideoMode && heroMetric === 'views'}
+              showProcessingZone={heroMetric === 'revenue'}
+              showUploadMarkers={!isVideoMode}
+            />
+
+            {isVideoMode && heroMetric === 'views' && (
+              <div className="an26-ret-legend" style={{ marginTop: 8 }}>
+                <span>
+                  <i className="dot indigo" /> Views
+                </span>
+                <span>
+                  <i className="dot gray" /> Typical performance
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* 3 Clickable Mini KPI Cards underneath Hero Chart */}
+          <div className="an26-kpi-3-row">
+            {secondaryKpis.map((k) => (
+              <button
+                key={k.key}
+                type="button"
+                className="an26-card an26-kpi-mini-card"
+                onClick={() => setHeroMetric(k.key)}
+              >
+                <div className="an26-kpi-mini-top">
+                  <span className="an26-kpi-mini-lbl">{k.label}</span>
+                  {k.clock && <span className="material-symbols-outlined an26-clock-sm">schedule</span>}
+                </div>
+                <div className="an26-hero-kpi-inline">
+                  <strong
+                    className="an26-kpi-mini-val yt-display-font"
+                    title={k.fullVal || k.val}
+                  >
+                    {k.val}
+                  </strong>
+                  {showPeriodDelta && <StudioUpBadge />}
+                  {showPeriodDelta && <span className="an26-delta-sm">{k.delta}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Rail: Separate Cards */}
+        <div className="an26-right-cards-stack">
+          <div className="an26-card">
+            <h3 className="an26-card-t-sm">48 hour views</h3>
+            <div className="an26-rt-big-num yt-display-font">{formatCountComma(rtTotal48h)}</div>
+            <Realtime48hBarChart hourlyBars={realtimeScaledBars} height={96} />
+          </div>
+
+          {isVideoMode ? (
+            <div className="an26-card">
+              <div className="an26-card-head" style={{ marginBottom: 12 }}>
+                <div>
+                  <h3>How viewers found this video</h3>
+                  <span className="an26-rt-views-sub">
+                    <i /> Views · 48 hours
+                  </span>
+                </div>
+              </div>
+              <StudioProgressList
+                items={(() => {
+                  const rts = currentVideo?.realtimeTrafficSources;
+                  if (rts && typeof rts === 'object') {
+                    const mapped = [
+                      { label: 'Browse features', pct: Number(rts.browse || 0) },
+                      { label: 'YouTube search', pct: Number(rts.search || 0) },
+                      { label: 'Channel pages', pct: Number(rts.channel || 0) },
+                      { label: 'Other YouTube features', pct: Number(rts.other || 0) },
+                      { label: 'External', pct: Number(rts.external || 0) },
+                    ]
+                      .filter((x) => x.pct > 0)
+                      .sort((a, b) => b.pct - a.pct)
+                      .slice(0, 3);
+                    const pctSum = mapped.reduce((s, x) => s + x.pct, 0) || 100;
+                    return mapped.map((t) => ({
+                      label: t.label,
+                      pct: t.pct,
+                      display: fmtV(Math.round((rtTotal48h * t.pct) / pctSum)),
+                    }));
+                  }
+                  const top3 = overallTrafficItems.slice(0, 3);
+                  const pctSum = top3.reduce((sum, item) => sum + Number(item.pct || 0), 0) || 100;
+                  return top3.map((t) => ({
+                    label: t.label,
+                    pct: t.pct,
+                    display: fmtV(Math.round((rtTotal48h * Number(t.pct || 0)) / pctSum)),
+                  }));
+                })()}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="an26-card">
+                <h3 className="an26-card-t-sm">Total subscribers</h3>
+                <div className="an26-rt-big-num yt-display-font" style={{ marginBottom: 0 }}>
+                  {channelInfo?.subscribersFormatted || fmtV(channelInfo?.subscribers || 0)}
+                </div>
+              </div>
+
+              <div className="an26-card">
+                <h3 className="an26-card-t-sm" style={{ marginBottom: 12 }}>Watched right now</h3>
+                <div className="an26-rt-videos">
+                  {rtTopVideos.map((item) => (
+                    <div
+                      key={item.id}
+                      className="an26-rt-vid-row"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${item.id}/analytics/hub_overview`)}
+                    >
+                      <img src={item.thumbnail} alt={item.title} className="an26-rt-thumb" />
+                      <span className="an26-rt-vid-title">{item.title}</span>
+                      <span className="an26-rt-vid-val">{Number(item.views48h || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* AI Summary Banner (Channel Overview only) */}
+      {!isVideoMode && (() => {
+        const topPanelVid = videos[0] || null;
+        const totalViewsNum = Number(agg.views || 0);
+
+        return (
+          <div className="an26-ai-section">
+            <div className="an26-ai-banner">
+              <div className="an26-ai-left">
+                <h3>
+                  Views and watch time are above typical, driven by your top channel video.
+                </h3>
+                <button
+                  type="button"
+                  className="an26-ai-report-btn"
+                  onClick={() => navigateHub('hub_content')}
+                >
+                  <AiReportIcon size={18} />
+                  <span>View report</span>
+                </button>
+              </div>
+              <div className="an26-ai-right">
+                <p>
+                  Your channel earned {agg.viewsFormatted || fmtV(totalViewsNum)} views and{' '}
+                  {watchTimeDisplay} watch hours across{' '}
+                  {snapshot?.dateRangeLabel}, remaining well above typical benchmarks.{' '}
+                  {topPanelVid && (
+                    <button
+                      type="button"
+                      className="an26-ai-vid-link"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${topPanelVid.id}/analytics/hub_overview`)}
+                    >
+                      {topPanelVid.title}
+                    </button>
+                  )}{' '}
+                  led audience engagement with{' '}
+                  {topPanelVid?.viewsFormatted || fmtV(topPanelVid?.views || 0)} views and a{' '}
+                  {topPanelVid?.avgViewDuration || topPanelVid?.avgDuration || '12:51'} average view
+                  duration, powered primarily by Browse features and new viewers. Consistent
+                  storytelling hooks and strong emotional pacing will keep deepening viewer
+                  retention.
+                </p>
+                <div className="an26-ai-meta">
+                  <span>Generated by AI · AI can make mistakes, so double-check it</span>
+                  <div className="an26-ai-votes">
+                    <button
+                      type="button"
+                      className={aiThumbVote === 'up' ? 'active' : ''}
+                      onClick={() => {
+                        setAiThumbVote('up');
+                        showToast?.('Thanks for your feedback', 'info');
+                      }}
+                      aria-label="Helpful"
+                    >
+                      <span className="material-symbols-outlined">thumb_up_off_alt</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={aiThumbVote === 'down' ? 'active' : ''}
+                      onClick={() => {
+                        setAiThumbVote('down');
+                        showToast?.('Feedback recorded', 'info');
+                      }}
+                      aria-label="Not helpful"
+                    >
+                      <span className="material-symbols-outlined">thumb_down_off_alt</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="an26-ai-chip-btn"
+              onClick={() => openAskStudio('Analyze my audience loyalty')}
+            >
+              <AskSparkleIcon size={13} />
+              <span>Analyze my audience loyalty</span>
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* Stacked Overview Section Summaries */}
+      {isVideoMode ? (
+        <>
+          <div className="an26-summary-block">
+            <div className="an26-summary-head">
+              <h2>Reach</h2>
+              <button type="button" className="an26-viewall-pill" onClick={() => navigateHub('hub_reach')}>
+                View all
+              </button>
+            </div>
+            <div className="an26-reach-split">
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>How viewers found this video</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <StudioProgressList
+                  items={trafficItems.slice(0, 3).map((t) => ({
+                    label: t.label,
+                    pct: t.pct,
+                    display: t.viewsDisplay,
+                  }))}
+                />
+              </div>
+
+              <div className="an26-stack-2">
+                <div className="an26-card">
+                  <h3>Impressions</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  <div className="an26-kpi-big-num yt-display-font" style={{ marginTop: 8 }}>
+                    {fmtV(agg.impressions || Math.round((agg.views || 0) * 14))}
+                  </div>
+                </div>
+                <div className="an26-card">
+                  <h3>Click-through rate</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  <div className="an26-kpi-big-num yt-display-font" style={{ marginTop: 8 }}>
+                    {formatPctValue(agg.ctr ?? currentVideo?.ctr, '6.2%')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="an26-summary-block">
+            <div className="an26-summary-head">
+              <h2>Engagement</h2>
+              <button type="button" className="an26-viewall-pill" onClick={() => navigateHub('hub_engagement')}>
+                View all
+              </button>
+            </div>
+            <div className="an26-reach-split">
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Audience retention</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <RetentionCurveChart duration={currentVideo?.duration || '15:14'} />
+              </div>
+
+              <div className="an26-stack-2">
+                <div className="an26-card">
+                  <h3>Average view duration</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  <div className="an26-kpi-big-num yt-display-font" style={{ marginTop: 8 }}>
+                    {currentVideo?.avgViewDuration || currentVideo?.avgDuration || '4:15'} (
+                    {computeAvgPctViewed(
+                      currentVideo?.avgViewDuration || currentVideo?.avgDuration || '4:15',
+                      currentVideo?.duration
+                    )})
+                  </div>
+                </div>
+                <div className="an26-card">
+                  <h3>Likes vs. dislikes</h3>
+                  <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  <div className="an26-hero-kpi-inline" style={{ marginTop: 8 }}>
+                    <strong className="an26-kpi-big-num yt-display-font">97.6%</strong>
+                    <StudioDownBadge />
+                    <span className="an26-delta-muted" style={{ color: '#606060' }}>18.9%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="an26-summary-block">
+          <div className="an26-summary-head">
+            <h2>Content</h2>
+            <button type="button" className="an26-viewall-pill" onClick={() => navigateHub('hub_content')}>
+              View all
+            </button>
+          </div>
+          <div className="an26-bento-3">
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Recent video performance</h3>
+                  <span className="an26-card-sub">Published {formatPublishDate(videos[0])}</span>
+                </div>
+              </div>
+              {videos[0] && (
+                <>
+                  <div
+                    className="an26-top-video-row"
+                    style={{ marginBottom: 14 }}
+                    onClick={() => navigate(`${CHANNEL_PREFIX}/video/${videos[0].id}/analytics/hub_overview`)}
+                  >
+                    <img src={videos[0].thumbnail || '/thumbnails/latest_video.png'} alt={videos[0].title} />
+                    <div className="an26-tv-meta">
+                      <p>{videos[0].title}</p>
+                    </div>
+                  </div>
+                  <div className="an26-rpm-cards">
+                    <div className="an26-rpm-row">
+                      <span>Views</span>
+                      <strong>{videos[0].viewsFormatted || fmtV(videos[0].views || 0)}</strong>
+                    </div>
+                    <div className="an26-rpm-row">
+                      <span>Thumbnail click-through rate</span>
+                      <strong>{formatPctValue(videos[0].ctr, '6.2%')}</strong>
+                    </div>
+                    <div className="an26-rpm-row">
+                      <span>Average view duration</span>
+                      <strong>{videos[0].avgViewDuration || videos[0].avgDuration || '4:15'}</strong>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>Top content</h3>
+                  <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <div className="an26-top-videos-list">
+                {[...videos]
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                  .slice(0, 3)
+                  .map((v) => (
+                  <div
+                    key={v.id}
+                    className="an26-top-video-row"
+                    onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_overview`)}
+                  >
+                    <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                    <div className="an26-tv-meta">
+                      <p>{v.title}</p>
+                    </div>
+                    <span className="an26-tv-views">{v.viewsFormatted || fmtV(v.views)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="an26-card">
+              <div className="an26-card-head">
+                <div>
+                  <h3>How viewers find your content</h3>
+                  <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                </div>
+              </div>
+              <StudioProgressList items={overallTrafficItems.slice(0, 3)} />
+            </div>
           </div>
         </div>
       )}
 
-      {/* AUDIENCE TAB */}
-      {activeTab === 'Audience' && (
-        <div className="audience-tab-page">
-          {/* Hero Dual Metric Card */}
-          <div className="analytics-card audience-hero-card">
-            <div className="audience-hero-header">
-              <div className="hero-metric-item border-right">
-                <span className="hero-label">Monthly audience <span className="material-symbols-outlined card-info-icon">info</span></span>
-                <span className="hero-val">{aggregated.viewsFormatted}</span>
-              </div>
-              <div className="hero-metric-item">
-                <span className="hero-label">Subscribers</span>
-                <span className="hero-val-row">
-                  {aggregated.subscribersNetFormatted || fmtS(isVideoMode ? (currentVideo.subscribersGained !== undefined ? currentVideo.subscribersGained : (currentVideo.netSubscribers !== undefined ? currentVideo.netSubscribers : aggregated.subscribersNet)) : (channelInfo.subscribersGainedLast28Days || aggregated.subscribersNet || 0))} <span className="gray-arrow-small">↓</span>
-                  <span className="hero-subtext">In this period</span>
-                </span>
-              </div>
-            </div>
-
-            <div className="chart-container-wrapper">
-              <ResponsiveContainer width="100%" height={230}>
-                <AreaChart data={dailyWithTypical} margin={{ top: 16, right: 35, left: 10, bottom: 20 }}>
-                  <defs>
-                    <linearGradient id="colorPurple" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#717171"
-                    tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    tickMargin={8}
-                    padding={{ left: 16, right: 16 }}
-                    interval={0}
-                    ticks={chartTicks}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatXAxisTick}
-                  />
-                  <YAxis
-                    orientation="right"
-                    stroke="#717171"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={48}
-                    allowDecimals={false}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatYAxisValue}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="linear"
-                    dataKey="views"
-                    stroke="#a855f7"
-                    strokeWidth={1.85}
-                    fill="url(#colorPurple)"
-                    isAnimationActive={false}
-                  />
-                  {videoUploadPoints.map((v, i) => (
-                    <ReferenceDot
-                      key={`marker-audience-${v.id}-${v.date}-${i}`}
-                      x={v.date}
-                      y={0}
-                      r={0}
-                      isFront={true}
-                      shape={(props) => {
-                        if (!props.cx || !props.cy) return null;
-                        return (
-                          <g transform={`translate(${props.cx - 9}, ${props.cy - 10})`} style={{ cursor: 'pointer' }}>
-                            <title>{`${v.title} (${v.date})`}</title>
-                            <rect x="0" y="0" width="18" height="14" rx="2" fill="#303030" stroke="#555555" strokeWidth="1" />
-                            {v.count > 1 ? (
-                              <text x="9" y="10.5" fill="#ffffff" fontSize="10" fontWeight="600" textAnchor="middle" fontFamily="Roboto, Inter, sans-serif">{v.count}</text>
-                            ) : (
-                              <polygon points="7,4 12,7 7,10" fill="#ffffff" />
-                            )}
-                          </g>
-                        );
-                      }}
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="card-footer-action">
-              <button className="see-more-btn">See more</button>
-            </div>
-          </div>
-
-          {/* Two Column Grid */}
-          <div className="studio-two-column margin-top-20">
-            {/* Left Column */}
-            <div className="audience-col">
-              {/* Audience by watch behavior */}
-              <StudioCard title="Audience by watch behavior" subtitle={`Monthly audience · ${formatSingleDate(simulationAnchorDate || '2026-11-13')}`} infoIcon={true}>
-                <div className="format-segmented-bar margin-bottom-16">
-                  <div className="segment seg-purple" style={{ width: '81%' }} />
-                  <div className="segment seg-lavender" style={{ width: '16%' }} />
-                  <div className="segment seg-white" style={{ width: '3%' }} />
-                </div>
-                <div className="audience-behavior-legend">
-                  <div className="legend-row">
-                    <span><span className="dot dot-purple" /> New viewers <span className="material-symbols-outlined card-info-icon">info</span></span>
-                    <strong>81.0%</strong>
-                  </div>
-                  <div className="legend-row">
-                    <span><span className="dot dot-lavender" /> Casual viewers <span className="material-symbols-outlined card-info-icon">info</span></span>
-                    <strong>16.0%</strong>
-                  </div>
-                  <div className="legend-row">
-                    <span><span className="dot dot-white" /> Regular viewers <span className="material-symbols-outlined card-info-icon">info</span></span>
-                    <strong>3.1%</strong>
+      {/* Audience Summary Block */}
+      <div className="an26-summary-block">
+        <div className="an26-summary-head">
+          <h2>Audience</h2>
+          <button type="button" className="an26-viewall-pill" onClick={() => navigateHub('hub_audience')}>
+            View all
+          </button>
+        </div>
+        <div className="an26-bento-3">
+          {isVideoMode ? (
+            <>
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Watch behavior</h3>
+                    <span className="an26-card-sub">Unique viewers · {snapshot?.dateRangeLabel}</span>
                   </div>
                 </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
+                <SegmentedStatList segments={viewerLoyaltySegments} />
+              </div>
 
-              {/* Age and gender */}
-              <StudioCard title="Age and gender" subtitle="Views · Last 28 days">
-                <div className="card-filter-pills">
-                  {['All', 'Videos', 'Shorts'].map(f => (
-                    <button
-                      key={f}
-                      className={`filter-chip ${ageGenderFilter === f ? 'active' : ''}`}
-                      onClick={() => setAgeGenderFilter(f)}
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top demographics</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <div className="an26-demo-big yt-display-font">Male</div>
+                <div className="an26-demo-big yt-display-font">25–34 years</div>
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top geographies</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <StudioProgressList items={geoItems.slice(0, 2)} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Monthly audience</h3>
+                    <strong className="an26-kpi-big-num yt-display-font">
+                      {fmtV(Math.round((agg.views || 0) * 0.72))}
+                    </strong>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <StudioLineMetricChart
+                  data={buildMetricSeries('unique')}
+                  metricKey="views"
+                  height={110}
+                  showProcessingZone
+                />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Watch behavior</h3>
+                    <span className="an26-card-sub">Monthly audience</span>
+                  </div>
+                </div>
+                <SegmentedStatList segments={viewerLoyaltySegments} />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head">
+                  <div>
+                    <h3>Top demographics</h3>
+                    <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                </div>
+                <div className="an26-demo-big yt-display-font">Male</div>
+                <div className="an26-demo-big yt-display-font">25–34 years</div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Revenue Summary Block */}
+      <div className="an26-summary-block">
+        <div className="an26-summary-head">
+          <h2>Revenue</h2>
+          <button type="button" className="an26-viewall-pill" onClick={() => navigateHub('hub_revenue')}>
+            View all
+          </button>
+        </div>
+        <div className="an26-bento-3">
+          {isVideoMode ? (
+            <>
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>How you make money</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <StudioProgressList
+                  items={[
+                    {
+                      label: 'Watch Page ads',
+                      pct: 100,
+                      display: formatCompactINR(
+                        currentVideo ? getVideoRevenueValue(currentVideo) : agg.revenue || 0
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Top ad type</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <div className="an26-demo-big yt-display-font" style={{ marginTop: 10 }}>
+                  Skippable video ads
+                </div>
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>RPM</h3>
+                    <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <div className="an26-demo-big yt-display-font" style={{ marginTop: 10 }}>
+                  {formatINR(parseRupeeNumber(agg.rpm ?? currentVideo?.rpm, 48.2))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Top earning</h3>
+                    <span className="an26-card-sub">Estimated revenue · {snapshot?.dateRangeLabel}</span>
+                  </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <div className="an26-top-videos-list">
+                  {topEarningVideos.slice(0, 3).map((v) => (
+                    <div
+                      key={v.id}
+                      className="an26-top-video-row"
+                      onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_revenue`)}
                     >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <FormatDistributionRow label="Female" value={14.9} formattedValue="14.9%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="Male" value={85.0} formattedValue="85.0%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="User-specified" value={0.1} formattedValue="0.1%" maxVal={100} barColor="#a855f7" />
-
-                <hr className="studio-divider" />
-
-                <FormatDistributionRow label="13–17 years" value={4.6} formattedValue="4.6%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="18–24 years" value={27.6} formattedValue="27.6%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="25–34 years" value={43.3} formattedValue="43.3%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="35–44 years" value={19.1} formattedValue="19.1%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="45–54 years" value={4.4} formattedValue="4.4%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="55–64 years" value={0.6} formattedValue="0.6%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="65+ years" value={0.3} formattedValue="0.3%" maxVal={50} barColor="#a855f7" />
-
-                <div className="studio-card-note margin-top-12">
-                  <span className="material-symbols-outlined card-info-icon">info</span> Viewer age is based on the age declared during account creation and includes an age estimation model to determine if a user is over or under the age of 18. <a href="#learn" onClick={e => e.preventDefault()}>Learn more</a>
-                </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* Videos growing your audience */}
-              <StudioCard title="Videos growing your audience" subtitle="Last 90 days">
-                <div className="growing-videos-table">
-                  <div className="growing-header">
-                    <span>Content</span>
-                    <span>New viewers who returned</span>
-                  </div>
-                  {videos.slice(0, 6).map((v, i) => (
-                    <div className="growing-row" key={v.id}>
-                      <img src={v.thumbnail} alt="" className="growing-thumb" />
-                      <span className="growing-title">{v.title}</span>
-                      <span className="growing-badge">
-                        {i === 0 ? <span className="green-grow-badge">Very high <StudioCheckBadge size={14} style={{ marginLeft: '4px' }} /></span> :
-                          i < 4 ? <span className="green-grow-badge">Moderate <StudioCheckBadge size={14} style={{ marginLeft: '4px' }} /></span> :
-                            <span className="gray-grow-badge">Low <span className="material-symbols-outlined">help</span></span>}
+                      <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
+                      <div className="an26-tv-meta">
+                        <p>{v.title}</p>
+                      </div>
+                      <span className="an26-tv-views" title={formatINR(v.revNum || 0)}>
+                        {getVideoRevenueFormatted(v, true)}
                       </span>
                     </div>
                   ))}
                 </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* When your viewers are on YouTube */}
-              <StudioCard title="When your viewers are on YouTube" subtitle="Your local time (GMT +0530) · Last 28 days">
-                <div className="heatmap-matrix-wrapper">
-                  <div className="heatmap-hours-header">
-                    <span>12:00AM</span>
-                    <span>6:00AM</span>
-                    <span>12:00PM</span>
-                    <span>6:00PM</span>
-                  </div>
-                  {audience.viewerHeatmap.map(dh => (
-                    <div className="heatmap-row" key={dh.day}>
-                      <span className="heatmap-day">{dh.day}</span>
-                      <div className="heatmap-cells">
-                        {dh.hours.map(h => (
-                          <span
-                            key={h.hour}
-                            className={`heatmap-cell intensity-${h.intensity}`}
-                            title={`${dh.day} ${h.hour}:00`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="studio-card-note margin-top-12">
-                  <span className="material-symbols-outlined card-info-icon">info</span> Publish time is not known to directly affect the long-term performance of a video. <a href="#learn" onClick={e => e.preventDefault()}>Learn more</a>
-                </div>
-              </StudioCard>
-
-              {/* Subscriber bell notifications */}
-              <StudioCard title="Subscriber bell notifications" subtitle="Percent of total subscribers · Current" infoIcon={true}>
-                <div className="bell-notification-items">
-                  <div className="bell-item">
-                    <span className="material-symbols-outlined bell-icon">notifications</span>
-                    <div className="bell-info">
-                      <div className="bell-title">Subscribers who turned on "All notifications" for your channel</div>
-                      <div className="bell-subtext">Typical on YouTube: 10% – 30%</div>
-                    </div>
-                    <div className="bell-val">7.0% <span className="bell-val-sub">({fmtV(Math.round((channelInfo.subscribers || 412850) * 0.07))})</span></div>
-                  </div>
-
-                  <div className="bell-item">
-                    <span className="material-symbols-outlined bell-icon">notifications_active</span>
-                    <div className="bell-info">
-                      <div className="bell-title">Subscribers who turned on "All notifications" for your channel and enabled YouTube notifications</div>
-                      <div className="bell-subtext">Typical on YouTube: 5% – 20%</div>
-                    </div>
-                    <div className="bell-val">3.9% <span className="bell-val-sub">({fmtV(Math.round((channelInfo.subscribers || 412850) * 0.039))})</span></div>
-                  </div>
-                </div>
-                <div className="studio-card-note margin-top-12">
-                  <span className="material-symbols-outlined card-info-icon">info</span> Notifications can't reach subscribers who disabled notifications on the YouTube app or signed out. <a href="#learn" onClick={e => e.preventDefault()}>Learn more</a>
-                </div>
-              </StudioCard>
-            </div>
-
-            {/* Right Column */}
-            <div className="audience-col">
-              {/* Popular with different audiences */}
-              <StudioCard title="Popular with different audiences" subtitle="Views · Last 28 days">
-                <div className="card-filter-pills">
-                  {['New', 'Casual', 'Regular'].map(p => (
-                    <button
-                      key={p}
-                      className={`filter-chip ${audiencePopularFilter === p ? 'active' : ''}`}
-                      onClick={() => setAudiencePopularFilter(p)}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="popular-videos-list">
-                  {videos.slice(0, 5).map((v) => {
-                    const maxV = Math.max(...videos.map(item => Number(item.views) || 0), 1);
-                    const pctWidth = Math.min(100, Math.max(8, Math.round(((Number(v.views) || 0) / maxV) * 100)));
-                    return (
-                      <div className="popular-video-row" key={v.id}>
-                        <img src={v.thumbnail} alt="" className="popular-thumb" />
-                        <span className="popular-title">{v.title}</span>
-                        <div className="popular-bar-track">
-                          <div className="popular-bar-fill" style={{ width: `${pctWidth}%` }} />
-                        </div>
-                        <span className="popular-count">{v.viewsFormatted || fmtV(v.views)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* Top geographies */}
-              <StudioCard title="Top geographies" subtitle="Views · Last 28 days">
-                <div className="card-filter-pills">
-                  {['All', 'Videos', 'Shorts'].map(f => (
-                    <button
-                      key={f}
-                      className={`filter-chip ${topGeographiesFilter === f ? 'active' : ''}`}
-                      onClick={() => setTopGeographiesFilter(f)}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <FormatDistributionRow label="United States" value={47.3} formattedValue="47.3%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="Canada" value={18.4} formattedValue="18.4%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="Germany" value={14.6} formattedValue="14.6%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="Italy" value={10.9} formattedValue="10.9%" maxVal={50} barColor="#a855f7" />
-                <FormatDistributionRow label="France" value={8.8} formattedValue="8.8%" maxVal={50} barColor="#a855f7" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* Top subtitle/CC languages */}
-              <StudioCard title="Top subtitle/CC languages" subtitle="Views · Last 28 days">
-                <FormatDistributionRow label="No subtitles/CC" value={90.7} formattedValue="90.7%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="English" value={4.8} formattedValue="4.8%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="English (United States)" value={2.5} formattedValue="2.5%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="German" value={1.2} formattedValue="1.2%" maxVal={100} barColor="#a855f7" />
-                <FormatDistributionRow label="French" value={0.8} formattedValue="0.8%" maxVal={100} barColor="#a855f7" />
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* Channels your audience watches */}
-              <StudioCard title="Channels your audience watches" subtitle="Last 28 days">
-                <div className="channels-watched-list">
-                  {audienceChannels.map(ch => (
-                    <div className="channel-row-item" key={ch.name}>
-                      <img src={ch.avatar} alt="" className="channel-avatar" />
-                      <div className="channel-info">
-                        <div className="channel-name">{ch.name}</div>
-                        <div className="channel-subs">{ch.subs}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="pagination-footer">
-                  <button className="page-nav-btn"><span className="material-symbols-outlined">chevron_left</span></button>
-                  <span>1 / 3</span>
-                  <button className="page-nav-btn"><span className="material-symbols-outlined">chevron_right</span></button>
-                </div>
-              </StudioCard>
-
-              {/* What your audience watches */}
-              <StudioCard title="What your audience watches" subtitle="Last 7 days">
-                <div className="empty-audience-note">
-                  Not enough eligible audience data to show this report. <a href="#learn" onClick={e => e.preventDefault()}>Learn more</a>
-                </div>
-              </StudioCard>
-
-              {/* Formats your viewers watch on YouTube */}
-              <StudioCard title="Formats your viewers watch on YouTube" subtitle="Last 28 days">
-                <div className="formats-spectrum-list">
-                  <div className="format-spectrum-row">
-                    <span className="lbl">Videos</span>
-                    <div className="spectrum-bar">
-                      <div className="spectrum-fill fill-full" />
-                    </div>
-                  </div>
-                  <div className="format-spectrum-row">
-                    <span className="lbl">Shorts</span>
-                    <div className="spectrum-bar">
-                      <div className="spectrum-fill fill-full" />
-                    </div>
-                  </div>
-                  <div className="format-spectrum-row">
-                    <span className="lbl">Live</span>
-                    <div className="spectrum-bar">
-                      <div className="spectrum-fill fill-full" />
-                    </div>
-                  </div>
-                  <div className="spectrum-labels-row">
-                    <span>Nobody watches</span>
-                    <span>Everybody watches</span>
-                  </div>
-                </div>
-              </StudioCard>
-
-              {/* Device type */}
-              <StudioCard title="Device type" subtitle="Watch time (hours) · Last 28 days">
-                <div className="card-filter-pills">
-                  {['All', 'Videos', 'Shorts'].map(d => (
-                    <button
-                      key={d}
-                      className={`filter-chip ${deviceTypeFilter === d ? 'active' : ''}`}
-                      onClick={() => setDeviceTypeFilter(d)}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-                <div className="format-segmented-bar margin-bottom-16">
-                  <div className="segment seg-purple" style={{ width: '86.4%' }} />
-                  <div className="segment seg-lavender" style={{ width: '9.2%' }} />
-                  <div className="segment seg-white" style={{ width: '4.4%' }} />
-                </div>
-                <div className="audience-behavior-legend">
-                  <div className="legend-row">
-                    <span><span className="dot dot-purple" /> Mobile phone</span>
-                    <strong>86.4%</strong>
-                  </div>
-                  <div className="legend-row">
-                    <span><span className="dot dot-lavender" /> Computer</span>
-                    <strong>9.2%</strong>
-                  </div>
-                  <div className="legend-row">
-                    <span><span className="dot dot-white" /> Others</span>
-                    <strong>4.4%</strong>
-                  </div>
-                </div>
-              </StudioCard>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REVENUE TAB */}
-      {activeTab === 'Revenue' && (
-        <div className="revenue-tab-page">
-          {/* Sub Navigation Pills */}
-          <div className="content-sub-tabs">
-            {['All', 'Watch Page ads', 'Shorts Feed ads', 'Supers & gifts', 'Affiliate program'].map(sub => (
-              <button
-                key={sub}
-                className={`sub-tab-pill ${revenueSubTab === sub ? 'active' : ''}`}
-                onClick={() => setRevenueSubTab(sub)}
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-
-          {/* Hero Estimated Revenue Card */}
-          <div className="analytics-card revenue-hero-card">
-            <div className="revenue-hero-header">
-              <div className="revenue-label">Estimated revenue <span className="material-symbols-outlined card-info-icon">info</span></div>
-              <div className="revenue-big-val">
-                {formatINR(aggregated.revenueFormatted || aggregated.revenue || 12532.97)}
               </div>
-            </div>
 
-            <div className="chart-container-wrapper">
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={dailyWithTypical} margin={{ top: 16, right: 45, left: 10, bottom: 20 }}>
-                  <defs>
-                    <linearGradient id="colorTeal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00c49f" stopOpacity={0.20} />
-                      <stop offset="95%" stopColor="#00c49f" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="#717171"
-                    tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                    tickMargin={8}
-                    padding={{ left: 16, right: 16 }}
-                    interval={0}
-                    ticks={chartTicks}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={formatXAxisTick}
-                  />
-                  <YAxis
-                    orientation="right"
-                    stroke="#717171"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={55}
-                    domain={[0, 'auto']}
-                    allowDecimals={false}
-                    tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                    tickFormatter={v => `₹${formatYAxisValue(v)}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="linear"
-                    dataKey="revenue"
-                    stroke="#00c49f"
-                    strokeWidth={1.85}
-                    fill="url(#colorTeal)"
-                    isAnimationActive={false}
-                  />
-                  {videoUploadPoints.map((v, i) => (
-                    <ReferenceDot
-                      key={`marker-revenue-${v.id}-${v.date}-${i}`}
-                      x={v.date}
-                      y={0}
-                      r={0}
-                      isFront={true}
-                      shape={(props) => {
-                        if (!props.cx || !props.cy) return null;
-                        return (
-                          <g transform={`translate(${props.cx - 9}, ${props.cy - 10})`} style={{ cursor: 'pointer' }}>
-                            <title>{`${v.title} (${v.date})`}</title>
-                            <rect x="0" y="0" width="18" height="14" rx="2" fill="#303030" stroke="#555555" strokeWidth="1" />
-                            {v.count > 1 ? (
-                              <text x="9" y="10.5" fill="#ffffff" fontSize="10" fontWeight="600" textAnchor="middle" fontFamily="Roboto, Inter, sans-serif">{v.count}</text>
-                            ) : (
-                              <polygon points="7,4 12,7 7,10" fill="#ffffff" />
-                            )}
-                          </g>
-                        );
-                      }}
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="card-footer-action">
-              <button className="see-more-btn">See more</button>
-            </div>
-          </div>
-
-          {/* Two Column Grid */}
-          <div className="studio-two-column margin-top-20">
-            {/* Left Column */}
-            <div className="revenue-col">
-              {/* 1. How much you're earning */}
-              <StudioCard title="How much you're earning" subtitle="Estimated · Last 6 months" infoIcon={true}>
-                <div className="earning-months-list">
-                  {(() => {
-                    const baseRev = Number(aggregated.revenue) || 12532.97;
-                    const months = [
-                      { month: 'August (ongoing)', ratio: 0.35 },
-                      { month: 'July', ratio: 0.95 },
-                      { month: 'June', ratio: 0.59 },
-                      { month: 'May', ratio: 0.93 },
-                      { month: 'April', ratio: 0.74 },
-                      { month: 'March', ratio: 0.38 }
-                    ];
-                    const computed = months.map(m => ({
-                      month: m.month,
-                      val: baseRev * m.ratio
-                    }));
-                    const maxVal = Math.max(...computed.map(c => c.val), 1);
-                    return computed.map((m, idx) => {
-                      const pct = Math.min(100, Math.max(8, Math.round((m.val / maxVal) * 100)));
-                      return (
-                        <div className="earning-row-clean" key={idx}>
-                          <span className="lbl">{m.month}</span>
-                          <div className="earning-bar-track">
-                            <div className="earning-bar-fill" style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="val">{formatINR(m.val)}</span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-
-              {/* 2. How you make money */}
-              <StudioCard title="How you make money" subtitle="Estimated · Last 28 days" infoIcon={true} className="margin-top-20">
-                <div className="card-filter-pills">
-                  {['All', 'Videos', 'Shorts', 'Live'].map(m => (
-                    <button
-                      key={m}
-                      className={`filter-chip ${revenueMakeMoneyFilter === m ? 'active' : ''}`}
-                      onClick={() => setRevenueMakeMoneyFilter(m)}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-                <div className="earning-months-list margin-top-16">
-                  <div className="earning-row-clean">
-                    <span className="lbl">Watch Page ads</span>
-                    <div className="earning-bar-track">
-                      <div className="earning-bar-fill" style={{ width: '99%' }} />
-                    </div>
-                    <span className="val">
-                      {formatINR((Number(aggregated.revenue) || 0) * 0.999)}
-                    </span>
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Ways of earning</h3>
+                    <span className="an26-card-sub">Estimated revenue · {snapshot?.dateRangeLabel}</span>
                   </div>
-                  <div className="earning-row-clean">
-                    <span className="lbl">Shorts Feed ads</span>
-                    <div className="earning-bar-track">
-                      <div className="earning-bar-fill" style={{ width: '4px', minWidth: '4px' }} />
-                    </div>
-                    <span className="val">
-                      {formatINR((Number(aggregated.revenue) || 0) * 0.001)}
-                    </span>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
+                </div>
+                <StudioProgressList
+                  items={[
+                    {
+                      label: 'Watch Page ads',
+                      pct: 86,
+                      display: formatCompactINR((agg.revenue || 0) * 0.86),
+                    },
+                    {
+                      label: 'Shorts Feed ads',
+                      pct: 14,
+                      display: formatCompactINR((agg.revenue || 0) * 0.14),
+                    },
+                  ]}
+                />
+              </div>
+
+              <div className="an26-card">
+                <div className="an26-card-head-ic">
+                  <div>
+                    <h3>Monthly revenue</h3>
+                    <span className="an26-card-sub">Estimated revenue</span>
                   </div>
+                  <span className="material-symbols-outlined an26-clock-ic">schedule</span>
                 </div>
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-            </div>
-
-            {/* Right Column */}
-            <div className="revenue-col">
-              {/* Content performance */}
-              <StudioCard title="Content performance" subtitle="Last 28 days" infoIcon={true}>
-                <div className="card-filter-pills">
-                  {['Videos', 'Shorts', 'Live'].map(c => (
-                    <button
-                      key={c}
-                      className={`filter-chip ${revenueContentFilter === c ? 'active' : ''}`}
-                      onClick={() => setRevenueContentFilter(c)}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="revenue-performance-summary">
-                  <div className="summary-item">
-                    <span className="big-num">
-                      {formatINR(Number(aggregated.revenue) || 0)}
-                    </span>
-                    <span className="sub-lbl">Estimated revenue</span>
-                  </div>
-                  <div className="summary-split">
-                    <div>
-                      <span className="med-num">{aggregated.viewsFormatted || '1L'}</span>
-                      <span className="sub-lbl">Views</span>
-                    </div>
-                    <div>
-                      {(() => {
-                        const currentRpm = (aggregated.views > 0) ? (aggregated.revenue / aggregated.views) * 1000 : (aggregated.rpm || 33.64);
-                        return <span className="med-num">₹{currentRpm.toFixed(2)}</span>;
-                      })()}
-                      <span className="sub-lbl">Revenue per 1K views (RPM)</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="revenue-videos-list">
-                  {topEarningVideos.slice(0, 5).map((v) => {
-                    const maxRev = Math.max(...topEarningVideos.map(item => item.calculatedRevenue || 0), 1);
-                    const pctWidth = Math.min(100, Math.max(8, Math.round(((v.calculatedRevenue || 0) / maxRev) * 100)));
-                    return (
-                      <div className="rev-video-row" key={v.id}>
-                        <img src={v.thumbnail} alt="" className="rev-thumb" />
-                        <span className="rev-title">{v.title}</span>
-                        <div className="rev-bar-track">
-                          <div className="rev-bar-fill" style={{ width: `${pctWidth}%` }} />
-                        </div>
-                        <span className="rev-amount">{formatINR(v.calculatedRevenue)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <button className="see-more-btn margin-top-16">See more</button>
-              </StudioCard>
-            </div>
-          </div>
+                <StudioProgressList
+                  items={[
+                    {
+                      label: 'November (ongoing)',
+                      pct: 32,
+                      display: formatCompactINR((agg.revenue || 0) * 0.24),
+                    },
+                    {
+                      label: 'October',
+                      pct: 86,
+                      display: formatCompactINR((agg.revenue || 0) * 0.31),
+                    },
+                    {
+                      label: 'September',
+                      pct: 58,
+                      display: formatCompactINR((agg.revenue || 0) * 0.19),
+                    },
+                  ]}
+                />
+              </div>
+            </>
+          )}
         </div>
-      )}
-
-      {/* TRENDS TAB */}
-      {activeTab === 'Trends' && (
-        <div className="studio-tab-layout">
-          <StudioCard title="Channel Growth Velocity & Velocity Trend" subtitle="Daily views compared with 14-day moving baseline">
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={daily} margin={{ top: 16, right: 35, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  stroke="#717171"
-                  tickLine={{ stroke: '#444444', strokeWidth: 1 }}
-                  axisLine={{ stroke: '#444444', strokeWidth: 1 }}
-                  tickMargin={8}
-                  padding={{ left: 16, right: 16 }}
-                  interval={0}
-                  ticks={chartTicks}
-                  tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                  tickFormatter={formatXAxisTick}
-                />
-                <YAxis
-                  orientation="right"
-                  stroke="#717171"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  width={48}
-                  allowDecimals={false}
-                  tick={{ fill: '#888888', fontSize: 11, fontFamily: 'Roboto, Inter, sans-serif' }}
-                  tickFormatter={formatYAxisValue}
-                />
-                <Tooltip />
-                <Area
-                  type="linear"
-                  dataKey="views"
-                  stroke="#ff9800"
-                  strokeWidth={1.85}
-                  fill="rgba(255, 152, 0, 0.12)"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </StudioCard>
-        </div>
-      )}
+      </div>
     </div>
   );
-};
-
-export default Analytics;
+}

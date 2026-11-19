@@ -56,33 +56,43 @@
 .search-box {
   display: flex;
   align-items: center;
-  background-color: #f8f8f8;
-  border: 1px solid #cccccc;
-  border-radius: 40px;
-  padding: 4px 16px;
+  background-color: #f2f2f2;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 2px 16px;
+  height: 36px;
   width: 100%;
-  max-width: 540px;
+  max-width: 580px;
   position: relative;
 }
 
 .search-box:focus-within {
-  border-color: var(--accent-blue);
+  background-color: #ffffff;
+  border-color: #065fd4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .search-icon {
   margin-right: 12px;
   font-size: 20px;
-  color: var(--text-secondary);
+  color: #606060;
 }
 
 .search-box input {
   background: transparent;
   border: none;
+  box-shadow: none;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   outline: none;
   width: 100%;
-  height: 32px;
+  height: 30px;
+}
+
+.search-box input:focus {
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 .clear-search-btn {
@@ -522,37 +532,259 @@
   100% { transform: rotate(360deg); }
 }
 
-.top-nav-user-pill {
-  display: flex;
+/* ─── Responsive & Mobile Styles for TopNav ─── */
+header.top-nav .mobile-search-trigger-btn,
+.mobile-search-trigger-btn {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  header.top-nav .mobile-search-trigger-btn {
+    display: none !important;
+  }
+}
+
+.mobile-search-header {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .top-nav {
+    height: 54px;
+    padding: 0 8px;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .left-section {
+    width: auto;
+    gap: 4px;
+  }
+
+  .studio-logo {
+    height: 19px;
+  }
+
+  .desktop-search-section {
+    display: none;
+  }
+
+  .mobile-search-trigger-btn {
+    display: flex;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .right-section {
+    gap: 4px;
+  }
+
+  .yt-auth-controls {
+    margin-right: 2px;
+    gap: 4px;
+  }
+
+  .yt-sync-btn {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+
+  .sync-btn-text {
+    display: none;
+  }
+
+  .create-btn {
+    padding: 4px 10px;
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  .create-btn span.material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  /* Full-width mobile search header */
+  .mobile-search-active {
+    padding: 0 6px;
+  }
+
+  .mobile-search-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+    position: relative;
+  }
+
+  .mobile-search-back-btn {
+    padding: 6px;
+  }
+
+  .mobile-search-box {
+    flex: 1;
+    max-width: 100%;
+    height: 38px;
+    border-radius: 20px;
+    background-color: #f1f3f4;
+    border: 1px solid #dcdcdc;
+    padding: 2px 12px;
+  }
+
+  .mobile-search-box input {
+    font-size: 14px;
+  }
+
+  /* Panels positioning on mobile */
+  .search-results-panel {
+    position: fixed;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: calc(100vw - 16px);
+    transform: none;
+    max-height: 70vh;
+    border-radius: 8px;
+  }
+
+  .notifications-drawer {
+    position: fixed;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: calc(100vw - 16px);
+    border-radius: 8px;
+  }
+
+  .create-dropdown-menu,
+  .profile-dropdown-menu {
+    position: fixed;
+    top: 54px;
+    right: 8px;
+    width: 250px;
+    max-width: calc(100vw - 16px);
+    border-radius: 8px;
+  }
+}
+
+
+
+
+/* =========================================================
+   YouTube Studio 2026 Light Theme & Pill Bar Overrides
+   ========================================================= */
+header.top-nav {
+  background: #ffffff !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  height: 60px !important;
+  padding: 0 20px 0 16px !important;
+}
+
+header.top-nav .left-section {
+  width: auto !important;
+  min-width: 196px;
+  gap: 14px;
+}
+
+header.top-nav .studio-logo {
+  height: 22px;
+}
+
+header.top-nav .search-box {
+  background: #f2f2f2 !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  height: 38px !important;
+  padding: 0 18px !important;
+  max-width: 540px;
+}
+
+header.top-nav .search-box:focus-within {
+  background: #ffffff !important;
+  border-color: #d9d9d9 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+header.top-nav .search-box .search-icon {
+  color: #0f0f0f !important;
+  font-size: 20px !important;
+  margin-right: 10px !important;
+}
+
+header.top-nav .search-box input {
+  background: transparent !important;
+  color: #0f0f0f !important;
+  font-size: 14px !important;
+  height: 36px !important;
+}
+
+header.top-nav .search-box input::placeholder {
+  color: #606060 !important;
+}
+
+header.top-nav .right-section {
+  gap: 6px;
+}
+
+header.top-nav .icon-action-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #0f0f0f !important;
+}
+
+header.top-nav .icon-action-btn .material-symbols-outlined {
+  color: #0f0f0f !important;
+  font-size: 21px !important;
+}
+
+header.top-nav .icon-action-btn:hover {
+  background: #f2f2f2;
+}
+
+.studio-pill-action-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 20px;
-  transition: background-color 0.15s;
-}
-
-.top-nav-user-pill:hover {
-  background-color: var(--hover-bg, rgba(0, 0, 0, 0.05));
-}
-
-.top-nav-user-info {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  line-height: 1.25;
-}
-
-.top-nav-user-name {
-  font-size: 13px;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #e0e0e0;
+  background: #ffffff !important;
+  color: #0f0f0f !important;
+  font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-primary);
+  cursor: pointer;
   white-space: nowrap;
+  box-shadow: none !important;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
 }
 
-.top-nav-user-role {
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
+.studio-pill-action-btn:hover {
+  background: #f2f2f2 !important;
+  border-color: #d4d4d4;
 }
 
+.studio-pill-action-btn .material-symbols-outlined {
+  font-size: 19px;
+  color: #0f0f0f !important;
+}
+
+.studio-pill-action-btn.create-btn {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+header.top-nav .profile-pic {
+  width: 32px !important;
+  height: 32px !important;
+  margin-left: 6px;
+}

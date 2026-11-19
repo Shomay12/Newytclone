@@ -192,3 +192,32 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+@media (max-width: 768px) {
+  .comments-page {
+    padding-inline: 8px;
+    padding-bottom: 72px;
+  }
+
+  .comment-list-item {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e8e8e8;
+    margin-bottom: 8px;
+  }
+
+  .comment-right {
+    width: 100%;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 8px;
+  }
+
+  .comment-actions {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+

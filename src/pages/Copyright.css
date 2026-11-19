@@ -53,6 +53,7 @@
 .takedown-modal {
   background-color: var(--bg-secondary);
   width: 600px;
+  max-width: 95vw;
   border-radius: 6px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
@@ -61,3 +62,11 @@
   padding: 24px;
   font-size: 14px;
 }
+
+@media (max-width: 768px) {
+  .copyright-page {
+    padding-inline: 8px;
+    padding-bottom: 72px;
+  }
+}
+

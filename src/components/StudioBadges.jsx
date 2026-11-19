@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const StudioCheckBadge = ({ size = 20, style = {}, className = '' }) => (
+export const StudioCheckBadge = ({ size = 16, style = {}, className = '' }) => (
   <svg
     width={size}
     height={size}
@@ -10,12 +10,12 @@ export const StudioCheckBadge = ({ size = 20, style = {}, className = '' }) => (
     style={{ verticalAlign: 'middle', display: 'inline-block', flexShrink: 0, ...style }}
     className={className}
   >
-    <circle cx="10" cy="10" r="8.5" stroke="#25b84c" strokeWidth="1.8" fill="none" />
-    <path d="M6 10.2L8.8 13L14.2 7" stroke="#25b84c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="10" cy="10" r="8.5" stroke="#138a36" strokeWidth="1.8" fill="none" />
+    <path d="M6 10.2L8.8 13L14.2 7" stroke="#138a36" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
-export const StudioUpBadge = ({ size = 20, style = {}, className = '', color = '#25b84c' }) => (
+export const StudioUpBadge = ({ size = 16, style = {}, className = '', color = '#138a36' }) => (
   <svg
     width={size}
     height={size}
@@ -26,11 +26,11 @@ export const StudioUpBadge = ({ size = 20, style = {}, className = '', color = '
     className={className}
   >
     <circle cx="10" cy="10" r="9.5" fill={color} />
-    <path d="M10 14.5V5.5M10 5.5L5.8 9.7M10 5.5L14.2 9.7" stroke="#000000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10 14.5V5.5M10 5.5L5.8 9.7M10 5.5L14.2 9.7" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
-export const StudioDownBadge = ({ size = 20, style = {}, className = '', color = '#25b84c' }) => (
+export const StudioDownBadge = ({ size = 16, style = {}, className = '', color = '#606060' }) => (
   <svg
     width={size}
     height={size}
@@ -41,6 +41,6 @@ export const StudioDownBadge = ({ size = 20, style = {}, className = '', color =
     className={className}
   >
     <circle cx="10" cy="10" r="9.5" fill={color} />
-    <path d="M10 5.5V14.5M10 14.5L5.8 10.3M10 14.5L14.2 10.3" stroke="#000000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M10 5.5V14.5M10 14.5L5.8 10.3M10 14.5L14.2 10.3" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );

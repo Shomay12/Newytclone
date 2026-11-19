@@ -479,7 +479,7 @@ export const useStore = create(
         } else if (activeKey === 'last90') {
           startStr = formatDate(subDays(today, 89));
           endStr = todayStr;
-        } else if (activeKey === '365') {
+        } else if (activeKey === '365' || activeKey === 'last365') {
           startStr = formatDate(subDays(today, 364));
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {

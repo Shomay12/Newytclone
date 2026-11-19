@@ -151,3 +151,45 @@
   background-color: var(--accent-blue);
   color: #ffffff;
 }
+
+@media (max-width: 768px) {
+  .earn-page {
+    padding-inline: 8px;
+    padding-bottom: 72px;
+  }
+
+  .earn-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .earn-hero-card {
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px;
+    border-radius: 12px;
+    align-items: stretch;
+  }
+
+  .hero-stats-row {
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .rev-est-box {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px;
+  }
+
+  .rev-value {
+    font-size: 26px;
+  }
+
+  .earn-streams-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+

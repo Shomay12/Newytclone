@@ -18,19 +18,32 @@ import Customization from './pages/Customization';
 import AudioLibrary from './pages/AudioLibrary';
 import CRM from './pages/CRM';
 
+import MobileBottomNav from './components/MobileBottomNav';
+
 const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
 
 function AppContent() {
   useSpreadsheetSync();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setIsMobileDrawerOpen(prev => !prev);
+    } else {
+      setIsSidebarCollapsed(prev => !prev);
+    }
+  };
 
   return (
     <div className="app-container">
-      <TopNav onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
+      <TopNav onToggleSidebar={handleToggleSidebar} />
       <div className="main-content-wrapper">
         <Sidebar 
           isCollapsed={isSidebarCollapsed} 
+          isMobileOpen={isMobileDrawerOpen}
+          onCloseMobile={() => setIsMobileDrawerOpen(false)}
           onOpenSettings={() => setShowSettingsModal(true)} 
         />
         <main className="main-content">
@@ -40,7 +53,9 @@ function AppContent() {
             {/* Real YouTube Studio Routes */}
             <Route path="/channel/:channelId/dashboard" element={<Dashboard />} />
             <Route path="/channel/:channelId/content/*" element={<Content />} />
+            <Route path="/channel/:channelId/video/:id/analytics/*" element={<Analytics />} />
             <Route path="/channel/:channelId/video/:id/edit" element={<VideoDetails />} />
+            <Route path="/channel/:channelId/video/:id/:section/*" element={<VideoDetails />} />
             <Route path="/channel/:channelId/video/:id" element={<VideoDetails />} />
             <Route path="/channel/:channelId/analytics/*" element={<Analytics />} />
             <Route path="/channel/:channelId/community/*" element={<Comments />} />
@@ -54,8 +69,9 @@ function AppContent() {
             {/* Backward compatibility redirects */}
             <Route path="/dashboard" element={<Navigate to={`${CHANNEL_PREFIX}/dashboard`} replace />} />
             <Route path="/content" element={<Navigate to={`${CHANNEL_PREFIX}/content/videos`} replace />} />
+            <Route path="/video/:id/analytics/*" element={<Analytics />} />
             <Route path="/video/:id" element={<Navigate to={`${CHANNEL_PREFIX}/video/:id/edit`} replace />} />
-            <Route path="/analytics" element={<Navigate to={`${CHANNEL_PREFIX}/analytics/tab-overview/period-last-28-days`} replace />} />
+            <Route path="/analytics" element={<Navigate to={`${CHANNEL_PREFIX}/analytics/hub_overview`} replace />} />
             <Route path="/comments" element={<Navigate to={`${CHANNEL_PREFIX}/community/comments`} replace />} />
             <Route path="/subtitles" element={<Navigate to={`${CHANNEL_PREFIX}/languages`} replace />} />
             <Route path="/copyright" element={<Navigate to={`${CHANNEL_PREFIX}/content-detection`} replace />} />
@@ -68,9 +84,12 @@ function AppContent() {
         </main>
       </div>
 
+      <MobileBottomNav onOpenMenu={() => setIsMobileDrawerOpen(true)} />
+
       {showSettingsModal && (
         <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
+      <Toast />
     </div>
   );
 }

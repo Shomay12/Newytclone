@@ -2,21 +2,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 :root {
-  /* YouTube Studio Modern Light Theme Colors */
-  --bg-primary: #f9f9f9;
+  /* YouTube Studio 2026 Light Theme Colors */
+  --bg-primary: #ffffff;
   --bg-secondary: #ffffff;
+  --bg-surface: #f2f2f2;
+  --bg-surface-subtle: #f8f8f8;
   --bg-card: #ffffff;
   --text-primary: #0f0f0f;
   --text-secondary: #606060;
   --text-disabled: #909090;
-  --accent-red: #cc0000;
+  --accent-red: #ff0033;
   --accent-blue: #065fd4;
+  --accent-indigo: #4747eb;
+  --accent-indigo-soft: rgba(71, 71, 235, 0.12);
+  --accent-purple: #8b2fc9;
+  --accent-magenta: #d81b60;
+  --accent-green: #137333;
   --border-color: #e5e5e5;
+  --border-strong: #d9d9d9;
   --hover-bg: rgba(0, 0, 0, 0.05);
-  --active-pill-bg: rgba(0, 0, 0, 0.05);
-  --icon-color: #606060;
-  
-  --font-family: 'Roboto', 'Arial', sans-serif;
+  --active-pill-bg: #f2f2f2;
+  --icon-color: #0f0f0f;
+
+  --radius-card: 16px;
+  --radius-subcard: 12px;
+  --radius-pill: 999px;
+  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
 }
 
 * {
@@ -36,8 +48,8 @@ html {
 
 body {
   font-family: var(--font-family);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: #ffffff;
+  color: #0f0f0f;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -59,9 +71,20 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-input, select, textarea {
+input:not([type='checkbox']):not([type='radio']),
+textarea {
   font-family: inherit;
   -webkit-appearance: none;
+}
+
+select {
+  font-family: inherit;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  font-family: inherit;
+  cursor: pointer;
 }
 
 img {
@@ -69,15 +92,15 @@ img {
   image-rendering: -webkit-optimize-contrast;
 }
 
-/* Material Symbols Adjustments */
+/* Material Symbols Adjustments — match YouTube Studio crisp weight */
 .material-symbols-outlined {
-  color: var(--icon-color);
-  font-size: 24px;
+  color: #0f0f0f;
+  font-size: 22px;
   font-variation-settings:
-  'FILL' 0,
-  'wght' 300,
-  'GRAD' 0,
-  'opsz' 24;
+    'FILL' 0,
+    'wght' 350,
+    'GRAD' 0,
+    'opsz' 24;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -88,6 +111,7 @@ img {
   flex-direction: column;
   height: 100vh;
   min-height: -webkit-fill-available;
+  background: #ffffff;
 }
 
 .main-content-wrapper {
@@ -96,16 +120,22 @@ img {
   overflow: hidden;
   min-height: 0;
   min-width: 0;
+  background: #ffffff;
 }
 
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-width: 0;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  background-color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 0 0 72px 0;
+  }
 }
 
 /* Scrollbar styling */
@@ -117,9 +147,41 @@ img {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cccccc;
+  background: #d0d0d0;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #aaaaaa;
+}
+
+/* Display Heading Font utility matching YouTube Sans headings & figures */
+.yt-display-font {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.page-header h1,
+.comments-header h1,
+.subtitles-header h1,
+.copyright-header h1,
+.earn-header h1,
+.customization-header h1,
+.audio-header h1 {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 700;
+  color: #0f0f0f;
+  letter-spacing: -0.015em;
+}
+
+.comments-page,
+.subtitles-page,
+.copyright-page,
+.earn-page,
+.customization-page,
+.audio-library-page {
+  background: #ffffff;
+  color: #0f0f0f;
+  padding: 20px 28px 48px;
 }

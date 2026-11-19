@@ -1,0 +1,69 @@
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 54px;
+    background-color: var(--bg-secondary, #ffffff);
+    border-top: 1px solid var(--border-color, #e5e5e5);
+    z-index: 1050;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mobile-bottom-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    color: #606060;
+    text-decoration: none;
+    padding: 4px 0;
+    transition: color 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-tab:active {
+    transform: scale(0.94);
+  }
+
+  .mobile-tab-icon {
+    font-size: 22px;
+    margin-bottom: 2px;
+    color: #606060;
+    transition: color 0.15s ease;
+  }
+
+  .mobile-tab-label {
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+  }
+
+  .mobile-bottom-tab.active {
+    color: #0f0f0f;
+  }
+
+  .mobile-bottom-tab.active .mobile-tab-icon {
+    color: #0f0f0f;
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .mobile-bottom-tab.active .mobile-tab-label {
+    font-weight: 600;
+    color: #0f0f0f;
+  }
+}
