@@ -39,7 +39,7 @@ export default function ResearchHub({ channelInfo, videos = [], channelPrefix, o
         thumbnail: v.thumbnail || '/thumbnails/latest_video.png',
         duration: v.duration || '8:24',
         author: channelInfo?.name || 'Jesus Is The Lord',
-        subs: channelInfo?.subscribersFormatted || '53,887',
+        subs: channelInfo?.subscribersFormatted || '53,884',
         viewsNum,
         views: v.viewsFormatted || fmtV(viewsNum),
         date: formatPublishDate(v),

@@ -48,7 +48,7 @@ const PRESET_THUMBNAILS = [
 ];
 
 export function computeDatesForPreset(presetKey, anchorDate) {
-  const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-11-13';
+  const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-11-20';
   const today = new Date(`${cleanAnchor}T00:00:00Z`);
   const formatDate = (d) => d.toISOString().split('T')[0];
   const subDays = (d, count) => {
@@ -71,7 +71,7 @@ export function computeDatesForPreset(presetKey, anchorDate) {
     return { start: formatDate(subDays(today, 364)), end: todayStr };
   }
   if (presetKey === 'lifetime' || presetKey === 'since_published') {
-    return { start: '2023-02-11', end: '2026-11-13' };
+    return { start: '2023-02-11', end: '2026-11-20' };
   }
   if (presetKey === '2026') {
     return { start: '2026-01-01', end: todayStr };
@@ -370,9 +370,9 @@ export default function CRM() {
 
   // Date Range Draft State
   const [dateDraft, setDateDraft] = useState({
-    anchorDate: simulationAnchorDate || '2026-11-13',
-    startDate: customStartDate || '2026-10-17',
-    endDate: customEndDate || '2026-11-13',
+    anchorDate: simulationAnchorDate || '2026-11-20',
+    startDate: customStartDate || '2026-10-24',
+    endDate: customEndDate || '2026-11-20',
     preset: selectedDateRange || 'lifetime'
   });
 
@@ -434,9 +434,9 @@ export default function CRM() {
 
   useEffect(() => {
     setDateDraft({
-      anchorDate: simulationAnchorDate || '2026-11-13',
-      startDate: customStartDate || '2026-10-17',
-      endDate: customEndDate || '2026-11-13',
+      anchorDate: simulationAnchorDate || '2026-11-20',
+      startDate: customStartDate || '2026-10-24',
+      endDate: customEndDate || '2026-11-20',
       preset: selectedDateRange || 'lifetime'
     });
   }, [simulationAnchorDate, customStartDate, customEndDate, selectedDateRange]);
@@ -1954,7 +1954,8 @@ export default function CRM() {
                 <div className="crm-quick-pill-row" style={{ marginTop: 8 }}>
                   <span className="crm-field-label" style={{ marginBottom: 0 }}>28-day templates:</span>
                   {[
-                    { label: 'Oct 17 – Nov 13, 2026 (Default)', start: '2026-10-17', end: '2026-11-13' },
+                    { label: 'Oct 24 – Nov 20, 2026 (Default)', start: '2026-10-24', end: '2026-11-20' },
+                    { label: 'Oct 17 – Nov 13, 2026', start: '2026-10-17', end: '2026-11-13' },
                     { label: 'Oct 7 – Nov 3, 2026', start: '2026-10-07', end: '2026-11-03' },
                     { label: 'Oct 4 – 31, 2026', start: '2026-10-04', end: '2026-10-31' },
                     { label: 'Aug 22 – Sep 18, 2026', start: '2026-08-22', end: '2026-09-18' },

@@ -342,7 +342,7 @@ export default function Analytics() {
     if (channelInfo?.realtimeViews48h !== undefined && channelInfo?.realtimeViews48h !== null) {
       return Number(channelInfo.realtimeViews48h);
     }
-    return 207;
+    return 189;
   }, [isVideoMode, currentVideo?.realtimeViews48h, currentVideo?.views, channelInfo?.realtimeViews48h]);
 
   const realtimeScaledBars = useMemo(() => {

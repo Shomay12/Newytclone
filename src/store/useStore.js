@@ -126,8 +126,8 @@ const BASELINE_REVENUE = PROCESSED_VIDEOS.reduce((acc, v) => acc + ((Number(v.vi
 const EMPTY_STATE = {
   channelInfo: {
     ...CHANNEL_BENCHMARKS,
-    subscribers: 53887,
-    subscribersFormatted: '53,887',
+    subscribers: 53884,
+    subscribersFormatted: '53,884',
     lifetimeViewsFormatted: '37L',
     totalUploads: PROCESSED_VIDEOS.length,
     hasExplicitChannelMetrics: true,
@@ -140,8 +140,8 @@ const EMPTY_STATE = {
     revenueLast28Days: 5899062.78,
     revenueLast28DaysFormatted: '₹58,99,062.78',
     totalRevenueFormatted: '₹58,99,062.78',
-    realtimeSubscribers: 53887,
-    realtimeViews48h: 207,
+    realtimeSubscribers: 53884,
+    realtimeViews48h: 189,
     realtimeViews60m: 0,
     currency: 'INR'
   },
@@ -277,10 +277,10 @@ export const useStore = create(
       databaseError: null,
 
       // Date filtering state
-      simulationAnchorDate: '2026-11-13',
+      simulationAnchorDate: '2026-11-20',
       selectedDateRange: 'lifetime',
-      customStartDate: '2026-10-17',
-      customEndDate: '2026-11-13',
+      customStartDate: '2026-10-24',
+      customEndDate: '2026-11-20',
       realtimeDataset: INITIAL_REALTIME,
 
       ...EMPTY_STATE,
@@ -377,7 +377,7 @@ export const useStore = create(
       // Set simulation anchor date (e.g. '2026-08-28') and update date ranges
       setSimulationAnchorDate: (anchorDate, customStart = null, customEnd = null) => {
         set(state => {
-          const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-11-13';
+          const cleanAnchor = anchorDate ? anchorDate.split('T')[0] : '2026-11-20';
           let startStr = customStart;
           if (!startStr) {
             const d = new Date(`${cleanAnchor}T00:00:00Z`);
@@ -446,7 +446,7 @@ export const useStore = create(
       getAnalyticsForRange: (rangeKey = null, videoId = null) => {
         const state = get();
         const activeKey = rangeKey || state.selectedDateRange;
-        const anchorDateStr = state.simulationAnchorDate || '2026-11-13';
+        const anchorDateStr = state.simulationAnchorDate || '2026-11-20';
         const today = new Date(anchorDateStr.includes('T') ? anchorDateStr : `${anchorDateStr}T00:00:00Z`);
 
         const formatDate = (d) => d.toISOString().split('T')[0];
@@ -484,7 +484,7 @@ export const useStore = create(
           endStr = todayStr;
         } else if (activeKey === 'lifetime' || activeKey === 'since_published') {
           startStr = '2023-02-11';
-          endStr = '2026-11-13';
+          endStr = '2026-11-20';
         } else if (activeKey === '2026') {
           startStr = '2026-01-01';
           endStr = todayStr;
@@ -531,7 +531,7 @@ export const useStore = create(
             revenueFormatted: '₹58,99,062.78',
             subscribersGained: 58128,
             subscribersLost: 4306,
-            subscribersNet: 53887,
+            subscribersNet: 53884,
             subscribersNetFormatted: '+53.9K',
             rpm: 1595.74,
             cpm: 2744.67,
@@ -541,7 +541,7 @@ export const useStore = create(
         } else {
           agg = aggregateMetrics(filteredDaily, videoId);
         }
-        const formattedDateRange = (activeKey === 'lifetime' || (!videoId && activeKey === 'since_published')) ? '11 Feb 2023 – 13 Nov 2026' : formatDateRangeText(startStr, endStr);
+        const formattedDateRange = (activeKey === 'lifetime' || (!videoId && activeKey === 'since_published')) ? '11 Feb 2023 – 20 Nov 2026' : formatDateRangeText(startStr, endStr);
 
         // Per-video analytics: use the video's actual stored metrics directly
         if (videoId) {
@@ -1262,14 +1262,14 @@ export const useStore = create(
       }
     }),
     {
-      name: 'yt-studio-analytics-v43',
+      name: 'yt-studio-analytics-v44',
       storage: createJSONStorage(() => (typeof window !== 'undefined' && window.localStorage ? window.localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} })),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.simulationAnchorDate = '2026-11-13';
+          state.simulationAnchorDate = '2026-11-20';
           state.selectedDateRange = 'lifetime';
-          state.customStartDate = '2026-10-17';
-          state.customEndDate = '2026-11-13';
+          state.customStartDate = '2026-10-24';
+          state.customEndDate = '2026-11-20';
           if (state.channelInfo) {
             if (state.channelInfo.revenueLast28DaysFormatted) {
               state.channelInfo.revenueLast28DaysFormatted = formatINR(state.channelInfo.revenueLast28DaysFormatted);
