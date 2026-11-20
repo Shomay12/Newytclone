@@ -550,16 +550,6 @@ export const useStore = create(
           return {
             dateRangeLabel: formattedDateRange,
             daily: filteredDaily,
-            aggregated: agg,
-            trafficSources: getTrafficSources(agg.views),
-            audience: getAudienceBreakdown(agg.views)
-          };
-        }
-
-        if ((activeKey === 'lifetime' || activeKey === 'since_published') && !videoId) {
-          return {
-            dateRangeLabel: formattedDateRange,
-            daily: filteredDaily,
             aggregated: {
               ...agg,
               subscribersGainedFormatted: '+58.1K',

@@ -7,13 +7,15 @@ export function formatCompactINR(val) {
   const sign = num < 0 ? '-' : '';
   const abs = Math.abs(num);
   if (abs < 1000) return `${sign}${formatINR(abs)}`;
-  if (abs < 100000) return `${sign}₹${(abs / 1000).toFixed(1)}K`;
+  if (abs < 100000) return `${sign}₹${(abs / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   if (abs < 10000000) {
     const lakhs = abs / 100000;
-    return `${sign}₹${lakhs >= 10 ? lakhs.toFixed(1) : lakhs.toFixed(2)}L`;
+    const formatted = lakhs >= 10 ? lakhs.toFixed(1).replace(/\.0$/, '') : lakhs.toFixed(2).replace(/\.00$/, '');
+    return `${sign}₹${formatted}L`;
   }
   const cr = abs / 10000000;
-  return `${sign}₹${cr >= 10 ? cr.toFixed(1) : cr.toFixed(2)}Cr`;
+  const formattedCr = cr >= 10 ? cr.toFixed(1).replace(/\.0$/, '') : cr.toFixed(2).replace(/\.00$/, '');
+  return `${sign}₹${formattedCr}Cr`;
 }
 
 export function formatHoursValue(val) {

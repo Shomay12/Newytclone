@@ -1355,6 +1355,7 @@ export default function Analytics() {
               height={185}
               showProcessingZone
               showUploadMarkers={!isVideoMode}
+              isLifetime={!isVideoMode && rangeKey === 'lifetime'}
             />
           </div>
 
@@ -1378,6 +1379,7 @@ export default function Analytics() {
               metricKey="subscribers"
               height={185}
               showUploadMarkers={!isVideoMode}
+              isLifetime={!isVideoMode && rangeKey === 'lifetime'}
             />
           </div>
         </div>
@@ -1933,6 +1935,7 @@ export default function Analytics() {
             height={220}
             showProcessingZone
             showUploadMarkers={!isVideoMode}
+            isLifetime={!isVideoMode && rangeKey === 'lifetime'}
           />
         </div>
 
@@ -2209,7 +2212,7 @@ export default function Analytics() {
     agg.watchTimeHrsFormatted || formatHoursValue(agg.watchTimeHrs || 0)
   ).replace(/\s*hrs\s*/gi, '');
   const revenueDisplay = agg.revenueFormatted || formatINR(agg.revenue || 0);
-  const showPeriodDelta = !isVideoMode && rangeKey !== 'lifetime';
+  const showPeriodDelta = !isVideoMode;
 
   const allKpis = [
     {
@@ -2224,6 +2227,7 @@ export default function Analytics() {
       label: 'Watch time (hours)',
       val: watchTimeDisplay,
       delta: formatHoursValue((agg.watchTimeHrs || 0) * 0.25),
+      icon: 'error',
     },
     {
       key: 'subscribers',
@@ -2234,10 +2238,10 @@ export default function Analytics() {
     {
       key: 'revenue',
       label: 'Estimated revenue',
-      val: revenueDisplay,
+      val: formatCompactINR(agg.revenue || 0),
       delta: formatCompactINR((agg.revenue || 0) * 0.28),
       fullVal: revenueDisplay,
-      clock: true,
+      icon: 'schedule',
     },
   ];
 
@@ -2327,7 +2331,7 @@ export default function Analytics() {
               >
                 <div className="an26-kpi-mini-top">
                   <span className="an26-kpi-mini-lbl">{k.label}</span>
-                  {k.clock && <span className="material-symbols-outlined an26-clock-sm">schedule</span>}
+                  {k.icon && <span className="material-symbols-outlined an26-clock-sm">{k.icon}</span>}
                 </div>
                 <div className="an26-hero-kpi-inline">
                   <strong
