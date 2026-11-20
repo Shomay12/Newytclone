@@ -16,7 +16,7 @@ export const CHANNEL_BENCHMARKS = {
   subscribers: 53884,
   lifetimeViews: 3696747,
   lifetimeWatchTime: 640000,
-  lifetimeRevenue: 5899062.78,
+  lifetimeRevenue: 5899062,
   averageRpm: 1595.74,
   averageCpm: 2750.00,
   joinedDate: '2023-02-11',
@@ -536,7 +536,7 @@ export function generateDailyTimeSeries(daysCount = 365, anchorDate = '2026-09-1
  *   - Views: 3,696,747 (37L)
  *   - Watch Time: 640,000 hrs (6.4L)
  *   - Subscribers: 53,884 (+53.9K)
- *   - Revenue: ₹58,99,062.78
+ *   - Revenue: ₹58,99,062
  */
 export function generateLifetimeTimeSeries() {
   const startDate = new Date('2023-02-11T00:00:00Z');
@@ -546,7 +546,7 @@ export function generateLifetimeTimeSeries() {
   const TARGET_VIEWS = 3696747;
   const TARGET_WATCH_HOURS = 640000;
   const TARGET_SUBS = 53884;
-  const TARGET_REVENUE = 5899062.78;
+  const TARGET_REVENUE = 5899062;
 
   const rawPoints = [];
 

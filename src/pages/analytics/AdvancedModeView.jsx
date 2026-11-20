@@ -73,11 +73,12 @@ export default function AdvancedModeView({
         };
       });
     } else if (dimension === 'geography') {
-      const geos = audience?.geographies || [
-        { country: 'United States', percentage: 38.5 },
-        { country: 'India', percentage: 14.2 },
-        { country: 'Canada', percentage: 11.2 },
-        { country: 'United Kingdom', percentage: 9.8 },
+      const geos = [
+        { country: 'United States', percentage: 47.3 },
+        { country: 'Canada', percentage: 18.4 },
+        { country: 'Germany', percentage: 14.6 },
+        { country: 'Italy', percentage: 10.9 },
+        { country: 'France', percentage: 8.8 },
       ];
       list = geos.map((g, i) => {
         const share = Number(g.percentage ?? g.share ?? 15) / 100;
@@ -89,15 +90,37 @@ export default function AdvancedModeView({
           subscribers: Math.round((aggregated.subscribersNet || 0) * share),
           revenue: Number(((aggregated.revenue || 0) * share).toFixed(2)),
           impressions: Math.round((aggregated.impressions || (aggregated.views || 0) * 14) * share),
-          ctr: '6.4%',
+          ctr: '8.9%',
         };
       });
-    } else if (dimension === 'age' || dimension === 'gender') {
-      const ages = audience?.ageGender || [
-        { group: '18–24 years', percentage: 22.4 },
-        { group: '25–34 years', percentage: 48.6 },
-        { group: '35–44 years', percentage: 18.2 },
-        { group: '45–54 years', percentage: 7.1 },
+    } else if (dimension === 'gender') {
+      const genders = [
+        { group: 'Male', percentage: 85.0 },
+        { group: 'Female', percentage: 14.9 },
+        { group: 'User-specified', percentage: 0.1 },
+      ];
+      list = genders.map((g, i) => {
+        const share = Number(g.percentage) / 100;
+        return {
+          id: `gen-${i}`,
+          name: g.group,
+          views: Math.round((aggregated.views || 0) * share),
+          watchTimeHrs: Number(((aggregated.watchTimeHrs || 0) * share).toFixed(1)),
+          subscribers: Math.round((aggregated.subscribersNet || 0) * share),
+          revenue: Number(((aggregated.revenue || 0) * share).toFixed(2)),
+          impressions: Math.round((aggregated.impressions || (aggregated.views || 0) * 14) * share),
+          ctr: '8.9%',
+        };
+      });
+    } else if (dimension === 'age') {
+      const ages = [
+        { group: '13–17 years', percentage: 4.6 },
+        { group: '18–24 years', percentage: 27.6 },
+        { group: '25–34 years', percentage: 43.3 },
+        { group: '35–44 years', percentage: 19.1 },
+        { group: '45–54 years', percentage: 4.4 },
+        { group: '55–64 years', percentage: 0.6 },
+        { group: '65+ years', percentage: 0.3 },
       ];
       list = ages.map((a, i) => {
         const share = Number(a.percentage ?? a.total ?? 25) / 100;
@@ -109,7 +132,7 @@ export default function AdvancedModeView({
           subscribers: Math.round((aggregated.subscribersNet || 0) * share),
           revenue: Number(((aggregated.revenue || 0) * share).toFixed(2)),
           impressions: Math.round((aggregated.impressions || (aggregated.views || 0) * 14) * share),
-          ctr: '6.2%',
+          ctr: '8.9%',
         };
       });
     } else {

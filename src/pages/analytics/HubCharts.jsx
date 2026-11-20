@@ -47,19 +47,70 @@ export function StudioLineMetricChart({
   showTypical = false,
   showProcessingZone = false,
   showUploadMarkers = false,
+  isLifetime = false,
 }) {
-  const firstLabel = data[0]?.label || '';
-  const lastLabel = data[data.length - 1]?.label || '';
+  const xKey = data[0]?.date ? 'date' : 'label';
+
+  const chartTicks = useMemo(() => {
+    if (!data || data.length === 0) return undefined;
+    if (isLifetime && data[0]?.date) {
+      return [
+        '2023-02-11',
+        '2023-09-11',
+        '2024-04-10',
+        '2024-11-09',
+        '2025-06-09',
+        '2026-01-07',
+        data[data.length - 1]?.date || '2026-11-20',
+      ];
+    }
+    const len = data.length;
+    if (len <= 7) return data.map((d) => d[xKey]);
+    const ticks = [];
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const idx = Math.round((i * (len - 1)) / (count - 1));
+      if (data[idx] && data[idx][xKey]) {
+        ticks.push(data[idx][xKey]);
+      }
+    }
+    return ticks;
+  }, [data, isLifetime, xKey]);
+
+  const formatXAxisTick = (val) => {
+    if (!val || typeof val !== 'string') return '';
+    if (isLifetime) {
+      if (val === '2023-02-11') return '11 Feb ...';
+      if (val === '2023-09-11') return '11 Sept 2023';
+      if (val === '2024-04-10') return '10 Apr 2024';
+      if (val === '2024-11-09') return '9 Nov 2024';
+      if (val === '2025-06-09') return '9 Jun 2025';
+      if (val === '2026-01-07') return '7 Jan 2026';
+      if (val === '2026-11-20') return '20 Nov 2026';
+      if (val === '2026-11-13') return '13 Nov 2026';
+    }
+    if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+      const parts = val.split('-');
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+      return `${day} ${monthNames[month] || ''} ${year}`;
+    }
+    return val;
+  };
 
   const processingStartLabel = useMemo(() => {
     if (!showProcessingZone || data.length < 6) return null;
-    return data[Math.max(0, data.length - 5)]?.label || null;
-  }, [showProcessingZone, data]);
+    return data[Math.max(0, data.length - 5)]?.[xKey] || null;
+  }, [showProcessingZone, data, xKey]);
 
   const processingEndLabel = useMemo(() => {
     if (!showProcessingZone || data.length === 0) return null;
-    return data[data.length - 1]?.label || null;
-  }, [showProcessingZone, data]);
+    return data[data.length - 1]?.[xKey] || null;
+  }, [showProcessingZone, data, xKey]);
+
+  const isLifetimeViews = isLifetime && metricKey === 'views';
 
   return (
     <div className="an26-line-chart-outer">
@@ -79,20 +130,23 @@ export function StudioLineMetricChart({
             </defs>
             <CartesianGrid vertical={false} stroke="#ececec" strokeWidth={1} />
             <XAxis
-              dataKey="label"
+              dataKey={xKey}
               axisLine={{ stroke: '#d8d8d8' }}
               tickLine={false}
               padding={{ left: 14, right: 14 }}
-              ticks={firstLabel && lastLabel && firstLabel !== lastLabel ? [firstLabel, lastLabel] : undefined}
+              ticks={chartTicks}
               tick={{ fontSize: 10.5, fill: '#909090' }}
-              interval="preserveStartEnd"
+              interval={0}
+              tickFormatter={formatXAxisTick}
             />
             <YAxis
               orientation="right"
               axisLine={false}
               tickLine={false}
+              domain={isLifetimeViews ? [0, 30000] : [0, 'auto']}
+              ticks={isLifetimeViews ? [0, 10000, 20000, 30000] : undefined}
               tickCount={4}
-              width={44}
+              width={48}
               tick={{ fontSize: 10.5, fill: '#909090' }}
               tickFormatter={(v) => {
                 if (metricKey === 'revenue') return formatCompactINR(v);

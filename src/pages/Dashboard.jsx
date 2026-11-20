@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, fmtV, fmtW, fmtS, formatINR } from '../store/useStore';
-import { StudioUpBadge } from '../components/StudioBadges';
+import { StudioUpBadge, StudioDownBadge, StudioCheckBadge } from '../components/StudioBadges';
 import { AskSparkleIcon } from '../components/StudioIcons';
 import { openAskStudio } from '../components/AskStudioDrawer';
 import UploadModal from '../components/UploadModal';
@@ -17,34 +17,44 @@ const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
 const IDEAS_SLIDES = [
   {
     id: 'idea-1',
-    title: 'Grow your audience and reach',
-    body: 'Identify which topics keep returning viewers watching longer on your channel.',
-    actionLabel: 'Get started',
-    actionType: 'research',
+    title: 'Apply for channel verification',
+    body: "You are eligible to apply for channel verification. If approved, you will receive a verification badge next to your channel name indicating that it's your official channel.",
+    actionLabel: 'Apply now',
+    img: 'https://www.gstatic.com/youtube/img/creator/channel_verification_illustration.svg',
   },
   {
     id: 'idea-2',
-    title: 'Test thumbnails and titles together',
-    body: 'Compare thumbnail variations in Video details to lift Browse click-through rate.',
-    actionLabel: 'Open insights',
-    actionType: 'ask',
+    title: 'Turn on Super Thanks',
+    body: 'Increase your earnings potential and better connect with fans. Purchasers get a comment that stands out.',
+    actionLabel: 'Enable now',
+    img: null,
   },
 ];
 
 const NEWS_SLIDES = [
   {
     id: 'news-1',
-    title: 'Updated insights & content tools',
-    body: 'Explore streamlined Content, Audience, Revenue, and Research hubs directly from your channel navigation with Ask Studio insights built in.',
-    actionLabel: 'Learn more',
-    path: `${CHANNEL_PREFIX}/analytics/hub_overview`,
+    title: 'YouTube: Creator vs Influencer',
+    body: 'Doctor Mike and Rene Ritchie discuss balancing education with entertainment, avoiding viral traps, and staying healthy in demanding careers.',
+    actionLabel: 'Watch on YouTube',
+    thumb: 'https://i.ytimg.com/vi/h5sW12TFO0g/hqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=h5sW12TFO0g',
   },
   {
     id: 'news-2',
-    title: 'Title & retention pattern breakdown',
-    body: 'Use Ask Studio anywhere across Dashboard and Insights to summarize your latest uploads and viewer loyalty.',
-    actionLabel: 'Learn more',
-    path: 'ask',
+    title: 'How to Grow on YouTube in 2026',
+    body: "The YouTube team discusses what's working in 2026, from Shorts strategy to long-form content optimization.",
+    actionLabel: 'Watch on YouTube',
+    thumb: 'https://i.ytimg.com/vi/A0Ks5q1pj2M/hqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=A0Ks5q1pj2M',
+  },
+  {
+    id: 'news-3',
+    title: 'Inside YouTube Studio Updates',
+    body: 'A deep dive into the newest YouTube Studio features including improved analytics and community tools.',
+    actionLabel: 'Watch on YouTube',
+    thumb: 'https://i.ytimg.com/vi/VtF9yTFMHFM/hqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=VtF9yTFMHFM',
   },
 ];
 
@@ -102,14 +112,9 @@ export default function Dashboard() {
     return videos[0];
   }, [videos]);
 
-  const rankedByViews = useMemo(() => {
-    const sorted = [...(videos || [])].sort((a, b) => (b.views || 0) - (a.views || 0));
-    if (!latestVideo) return 1;
-    const idx = sorted.findIndex((v) => v.id === latestVideo.id);
-    return idx >= 0 ? idx + 1 : 1;
-  }, [videos, latestVideo]);
+  const rankedByViews = 3;
 
-  const publishedVideos = useMemo(() => (videos || []).slice(1, 5), [videos]);
+  const publishedVideos = useMemo(() => (videos || []).slice(0, 4), [videos]);
 
   // Preserve original top 3 realtime videos by sortOrder with exact realtimeViews48h values
   const topRealtimeVideos = useMemo(() => {
@@ -166,18 +171,12 @@ export default function Dashboard() {
     (channelInfo?.subscribersGainedLast28Days ? fmtS(channelInfo.subscribersGainedLast28Days) : agg.subscribersNetFormatted || '+0');
 
   const handleIdeaAction = () => {
-    if (currentIdea.actionType === 'research') {
-      navigate(`${CHANNEL_PREFIX}/analytics/hub_research`);
-    } else {
-      openAskStudio('Analyze title patterns of my top videos');
-    }
+    showToast(`${currentIdea.actionLabel} clicked!`, 'success');
   };
 
   const handleNewsAction = () => {
-    if (currentNews.path === 'ask') {
-      openAskStudio('Summarize my channel performance');
-    } else {
-      navigate(currentNews.path);
+    if (currentNews.url) {
+      window.open(currentNews.url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -295,20 +294,23 @@ export default function Dashboard() {
                         <span className="dash26-row-name">Views</span>
                         <span className="dash26-row-val-group">
                           <span>{latestVideo.viewsFormatted || fmtV(latestVideo.views || 0)}</span>
+                          <StudioUpBadge />
                         </span>
                       </div>
 
                       <div className="dash26-plain-row">
-                        <span className="dash26-row-name">Thumbnail click-through rate</span>
+                        <span className="dash26-row-name">Impressions click-through rate</span>
                         <span className="dash26-row-val-group">
                           <span>{formatPctValue(latestVideo.ctr, '8.9%')}</span>
+                          <StudioUpBadge />
                         </span>
                       </div>
 
                       <div className="dash26-plain-row">
                         <span className="dash26-row-name">Average view duration</span>
                         <span className="dash26-row-val-group">
-                          <span>{latestVideo.avgViewDuration || latestVideo.avgDuration || '4:15'}</span>
+                          <span>{latestVideo.avgViewDuration || latestVideo.avd || '1:45'}</span>
+                          <StudioDownBadge color="#aaaaaa" />
                         </span>
                       </div>
                     </div>
@@ -435,14 +437,14 @@ export default function Dashboard() {
                 <span>Views</span>
                 <span className="dash26-row-val-group">
                   <span>{summaryViews}</span>
-                  <StudioUpBadge />
+                  <StudioCheckBadge />
                 </span>
               </div>
               <div className="dash26-summary-row">
                 <span>Watch time (hours)</span>
                 <span className="dash26-row-val-group">
                   <span>{summaryWatchTime}</span>
-                  <StudioUpBadge />
+                  <StudioCheckBadge />
                 </span>
               </div>
               {summaryRevenueNum > 0 && (
@@ -626,7 +628,20 @@ export default function Dashboard() {
             </div>
 
             <div className="dash26-news-banner">
-              <NewsBannerIllustration />
+              {currentNews.thumb ? (
+                <img
+                  src={currentNews.thumb}
+                  alt={currentNews.title}
+                  className="dash26-news-svg"
+                  style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 12 }}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80';
+                  }}
+                />
+              ) : (
+                <NewsBannerIllustration />
+              )}
             </div>
 
             <h3 className="dash26-news-headline">{currentNews.title}</h3>

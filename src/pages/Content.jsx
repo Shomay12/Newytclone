@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
+import {
+  VIDEO_ID_TO_DATE,
+  TITLE_TO_SCHEDULE_DATE,
+  VIDEO_PUBLISH_SCHEDULE,
+} from '../engine/AnalyticsSimulationEngine';
 import UploadModal from '../components/UploadModal';
 import {
   formatCountComma,
@@ -12,6 +17,7 @@ import './Content.css';
 const CHANNEL_PREFIX = '/channel/UCqpdVWIzEQUcbf4pAxlneOQ';
 
 const CONTENT_TABS = [
+  { key: 'inspiration', label: 'Inspiration' },
   { key: 'videos', label: 'Videos' },
   { key: 'shows', label: 'Shows' },
   { key: 'shorts', label: 'Shorts' },
@@ -22,7 +28,6 @@ const CONTENT_TABS = [
   { key: 'courses', label: 'Courses' },
   { key: 'promotions', label: 'Promotions' },
   { key: 'collaborations', label: 'Collaborations' },
-  { key: 'ideas', label: 'Ideas' },
 ];
 
 export default function Content() {
@@ -58,10 +63,35 @@ export default function Content() {
     if (pathTab === 'shorts') source = shorts;
     else if (pathTab === 'live') source = liveStreams;
 
-    let filtered = [...(source || [])];
+    let filtered = (source || []).map((item, idx) => {
+      const scheduledDate =
+        TITLE_TO_SCHEDULE_DATE[item.title] ||
+        VIDEO_ID_TO_DATE[item.id] ||
+        (pathTab === 'videos' && VIDEO_PUBLISH_SCHEDULE[idx]) ||
+        '2026-08-16';
+      const pubDate = item.publishDate || item.date || scheduledDate;
+      const commentsCount =
+        item.comments != null
+          ? Number(item.comments)
+          : item.commentsCount != null
+          ? Number(item.commentsCount)
+          : Math.round((Number(item.views) || 0) * 0.0034);
+      return {
+        ...item,
+        publishDate: pubDate,
+        date: pubDate,
+        comments: commentsCount,
+        sortOrder: item.sortOrder !== undefined ? item.sortOrder : idx + 1,
+      };
+    });
+
     if (filterText.trim()) {
       const q = filterText.toLowerCase();
-      filtered = filtered.filter((item) => (item.title || '').toLowerCase().includes(q));
+      filtered = filtered.filter(
+        (item) =>
+          (item.title || '').toLowerCase().includes(q) ||
+          (item.description || '').toLowerCase().includes(q)
+      );
     }
     if (visibilityFilter !== 'all') {
       filtered = filtered.filter(
@@ -78,9 +108,12 @@ export default function Content() {
         const cb = b.comments ?? b.commentsCount ?? 0;
         return sortDir === 'desc' ? cb - ca : ca - cb;
       }
-      const da = new Date(a.date || a.publishDate || a.publishedAt || '2026-01-01').getTime();
-      const db = new Date(b.date || b.publishDate || b.publishedAt || '2026-01-01').getTime();
-      return sortDir === 'desc' ? db - da : da - db;
+      const dateA = a.publishDate || a.date || '';
+      const dateB = b.publishDate || b.date || '';
+      if (dateA && dateB && dateA !== dateB) {
+        return sortDir === 'desc' ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
+      }
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
     });
 
     return filtered;
@@ -372,7 +405,7 @@ export default function Content() {
                       className="content26-comment-link"
                       onClick={() => navigate(`${CHANNEL_PREFIX}/video/${row.id}/comments`)}
                     >
-                      {row.comments ?? row.commentsCount ?? 0}
+                      {formatCountComma(row.comments ?? row.commentsCount ?? 0)}
                     </button>
                   </td>
                 </tr>

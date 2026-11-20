@@ -35,8 +35,8 @@ export default function VideoDetails() {
   const [visibility, setVisibility] = useState(video?.visibility || 'Public');
   const [madeForKids, setMadeForKids] = useState('no');
   const [selectedPlaylist, setSelectedPlaylist] = useState(playlists[0]?.title || '');
-  const [tags, setTags] = useState(video?.tags || 'animation, story, motivation, spiritual');
-  const [category, setCategory] = useState(video?.category || 'Education');
+  const [tags, setTags] = useState(video?.tags || '');
+  const [category, setCategory] = useState(video?.category || 'Science & Technology');
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showAbModal, setShowAbModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -53,8 +53,8 @@ export default function VideoDetails() {
   const activeVideoTitle = video?.title || '';
   const activeVideoDesc = video?.description || '';
   const activeVideoVis = video?.visibility || 'Public';
-  const activeVideoTags = video?.tags || 'animation, story, motivation, spiritual';
-  const activeVideoCat = video?.category || 'Education';
+  const activeVideoTags = video?.tags || '';
+  const activeVideoCat = video?.category || 'Science & Technology';
 
   useEffect(() => {
     if (activeVideoId) {
@@ -99,14 +99,10 @@ export default function VideoDetails() {
     title !== (video.title || '') ||
     description !== (video.description || '') ||
     visibility !== (video.visibility || 'Public') ||
-    tags !== (video.tags || 'animation, story, motivation, spiritual') ||
-    category !== (video.category || 'Education');
+    tags !== (video.tags || '') ||
+    category !== (video.category || 'Science & Technology');
 
-  const safeFileSlug = (video.title || video.id || 'video_upload')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 28);
+  const safeFileSlug = `render_master_${video.id || 'video'}`;
 
   const formattedCurrentTime = (() => {
     const [minsStr = '4', secsStr = '15'] = (video.duration || '4:15').split(':');
@@ -138,8 +134,8 @@ export default function VideoDetails() {
     setTitle(video.title || '');
     setDescription(video.description || '');
     setVisibility(video.visibility || 'Public');
-    setTags(video.tags || 'animation, story, motivation, spiritual');
-    setCategory(video.category || 'Education');
+    setTags(video.tags || '');
+    setCategory(video.category || 'Science & Technology');
   };
 
   const handleCopyLink = () => {

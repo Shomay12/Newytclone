@@ -55,9 +55,14 @@ export function getVideoRevenueValue(video) {
   if (typeof video.revenue === 'number' && Number.isFinite(video.revenue)) {
     return video.revenue;
   }
-  const str = video.estRevenue || video.revenueFormatted || '0';
-  const parsed = Number(String(str).replace(/[^0-9.-]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
+  const str = video.estRevenue || video.revenueFormatted || '';
+  if (str) {
+    const parsed = Number(String(str).replace(/[^0-9.-]/g, ''));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  const views = Number(video.views) || 0;
+  const rpm = Number(video.rpm) || 33.64;
+  return parseFloat(((views / 1000) * rpm).toFixed(2));
 }
 
 export function getVideoRevenueFormatted(video, compact = false) {

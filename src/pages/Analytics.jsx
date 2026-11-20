@@ -92,7 +92,6 @@ export default function Analytics() {
   const [demoGeoTab, setDemoGeoTab] = useState('all');
   const [demoAgeTab, setDemoAgeTab] = useState('all');
   const [demoGenderTab, setDemoGenderTab] = useState('all');
-  const [otherWatchTab, setOtherWatchTab] = useState('all');
   const [revTab, setRevTab] = useState('all');
   const [topEarnFilter, setTopEarnFilter] = useState('all');
   const [waysFilter, setWaysFilter] = useState('all');
@@ -138,6 +137,7 @@ export default function Analytics() {
         ? formatPublishDate(rawFull)
         : rawFull;
       return {
+        date: d.date || String(rawLabel),
         label,
         fullDate,
         value: pickVal(d),
@@ -152,38 +152,44 @@ export default function Analytics() {
   );
 
   const searchTermItems = useMemo(() => {
-    const words = (currentVideo?.title || videos[0]?.title || 'ai website video')
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-      .slice(0, 4);
-    const channelTerm = (channelInfo?.name || 'channel').toLowerCase();
-    const terms =
-      words.length >= 2
-        ? [
-            channelTerm,
-            `${words[0].toLowerCase()} ${words[1].toLowerCase()}`,
-            `how to ${words[0].toLowerCase()}`,
-            `#${words[0].toLowerCase()}`,
-            words[0].toLowerCase(),
-          ]
-        : [channelTerm, 'ai video', 'tutorial', '#ai', 'guide'];
-    const weights = [16.8, 3.4, 2.2, 1.1, 1.1];
-    return terms.map((label, i) => ({
-      label,
-      pct: weights[i],
-      display: `${weights[i]}%`,
-      viewsDisplay: fmtV(Math.round(((agg.views || 0) * weights[i]) / 100)),
+    const terms = [
+      { label: 'motu patlu ai video kaise banaye', pct: 17.3 },
+      { label: 'how to make motu patlu ai video', pct: 4.8 },
+      { label: 'ai motu patlu video kaise banaye', pct: 2.5 },
+      { label: 'how to create motu patlu ai video', pct: 1.9 },
+      { label: 'motu patlu ai video editing', pct: 1.9 },
+    ];
+    return terms.map((item) => ({
+      label: item.label,
+      pct: item.pct,
+      display: `${item.pct.toFixed(1)}%`,
+      viewsDisplay: fmtV(Math.round(((agg.views || 0) * item.pct) / 100)),
     }));
-  }, [currentVideo?.title, videos, channelInfo?.name, agg.views]);
+  }, [agg.views]);
 
   const overallTrafficItems = useMemo(() => {
+    if (isVideoMode) {
+      const videoSources = [
+        { label: 'YouTube search', pct: 81.2 },
+        { label: 'Browse features', pct: 8.0 },
+        { label: 'Other YouTube features', pct: 6.9 },
+        { label: 'Direct or unknown', pct: 1.1 },
+        { label: 'External', pct: 0.9 },
+        { label: 'Others', pct: 2.0 },
+      ];
+      return videoSources.map((s) => ({
+        label: s.label,
+        pct: s.pct,
+        display: `${s.pct.toFixed(1)}%`,
+        viewsDisplay: fmtV(Math.round(((agg.views || 0) * s.pct) / 100)),
+      }));
+    }
     const raw = snapshot?.trafficSources || [];
     if (raw.length > 0) {
       return raw.slice(0, 5).map((s) => {
         const pct = Number(s.percentage ?? s.share ?? 0);
         return {
-          label: s.source || s.name || s.label || 'Browse features',
+          label: s.source || s.name || s.label || 'Browse Features',
           pct,
           display: `${pct.toFixed(1)}%`,
           viewsDisplay: fmtV(Math.round(((agg.views || 0) * pct) / 100)),
@@ -191,32 +197,33 @@ export default function Analytics() {
       });
     }
     return [
-      { label: 'Browse features', pct: 58.6, display: '58.6%', viewsDisplay: fmtV((agg.views || 0) * 0.586) },
-      { label: 'YouTube search', pct: 23.0, display: '23.0%', viewsDisplay: fmtV((agg.views || 0) * 0.23) },
-      { label: 'Suggested videos', pct: 9.8, display: '9.8%', viewsDisplay: fmtV((agg.views || 0) * 0.098) },
-      { label: 'Other YouTube features', pct: 4.5, display: '4.5%', viewsDisplay: fmtV((agg.views || 0) * 0.045) },
-      { label: 'Channel pages', pct: 1.9, display: '1.9%', viewsDisplay: fmtV((agg.views || 0) * 0.019) },
+      { label: 'Browse Features', pct: 43.0, display: '43.0%', viewsDisplay: fmtV((agg.views || 0) * 0.43) },
+      { label: 'Suggested Videos', pct: 24.0, display: '24.0%', viewsDisplay: fmtV((agg.views || 0) * 0.24) },
+      { label: 'YouTube Search', pct: 18.0, display: '18.0%', viewsDisplay: fmtV((agg.views || 0) * 0.18) },
+      { label: 'Direct', pct: 8.0, display: '8.0%', viewsDisplay: fmtV((agg.views || 0) * 0.08) },
+      { label: 'External', pct: 7.0, display: '7.0%', viewsDisplay: fmtV((agg.views || 0) * 0.07) },
     ];
-  }, [snapshot?.trafficSources, agg.views]);
+  }, [isVideoMode, snapshot?.trafficSources, agg.views]);
 
   const trafficItems = useMemo(() => {
     if (trafficFilterTab === 'external') {
       return [
-        { label: 'Google Search', pct: 44.2, display: '44.2%', viewsDisplay: fmtV((agg.views || 0) * 0.022) },
-        { label: 'Instagram', pct: 28.4, display: '28.4%', viewsDisplay: fmtV((agg.views || 0) * 0.014) },
-        { label: 'Facebook', pct: 16.5, display: '16.5%', viewsDisplay: fmtV((agg.views || 0) * 0.008) },
-        { label: 'Pinterest', pct: 10.9, display: '10.9%', viewsDisplay: fmtV((agg.views || 0) * 0.005) },
+        { label: 'WhatsApp', pct: 50.0, display: '50.0%', viewsDisplay: fmtV((agg.views || 0) * 0.0045) },
+        { label: 'whatsapp.com', pct: 19.4, display: '19.4%', viewsDisplay: fmtV((agg.views || 0) * 0.0017) },
+        { label: 'Google Search', pct: 13.0, display: '13.0%', viewsDisplay: fmtV((agg.views || 0) * 0.0012) },
+        { label: 'WhatsApp Business', pct: 6.4, display: '6.4%', viewsDisplay: fmtV((agg.views || 0) * 0.0006) },
+        { label: 'instagram.com', pct: 1.5, display: '1.5%', viewsDisplay: fmtV((agg.views || 0) * 0.0001) },
       ];
     }
     if (trafficFilterTab === 'search') {
       return searchTermItems;
     }
     if (trafficFilterTab === 'suggested') {
-      const weights = [31.2, 24.5, 18.8, 14.1, 11.4];
+      const weights = [4.4, 4.2, 4.2, 2.5, 1.9];
       return videos.slice(0, 5).map((v, i) => ({
         label: v.title,
-        pct: weights[i] || 10,
-        display: `${weights[i] || 10}%`,
+        pct: weights[i] || 1.9,
+        display: `${weights[i] || 1.9}%`,
       }));
     }
     if (trafficFilterTab === 'playlists') {
@@ -233,45 +240,31 @@ export default function Analytics() {
   }, [trafficFilterTab, overallTrafficItems, searchTermItems, videos, playlists, agg.views]);
 
   const geoItems = useMemo(() => {
-    const raw = snapshot?.audience?.geographies || [];
-    const base =
-      raw.length > 0
-        ? raw.slice(0, 5).map((g) => ({
-            label: g.country || g.name || 'United States',
-            pct: Number(g.percentage ?? g.share ?? 0),
-          }))
-        : [
-            { label: 'United States', pct: 42.5 },
-            { label: 'Canada', pct: 14.2 },
-            { label: 'United Kingdom', pct: 12.8 },
-            { label: 'Australia', pct: 9.5 },
-            { label: 'Germany', pct: 8.4 },
-          ];
+    const base = [
+      { label: 'United States', pct: 47.3 },
+      { label: 'Canada', pct: 18.4 },
+      { label: 'Germany', pct: 14.6 },
+      { label: 'Italy', pct: 10.9 },
+      { label: 'France', pct: 8.8 },
+    ];
     const mult =
       demoGeoTab === 'shorts' ? 0.92 : demoGeoTab === 'live' ? 0.88 : demoGeoTab === 'videos' ? 1.0 : 1.0;
     return base.map((item, idx) => {
       const pct = Number(Math.max(0.2, Math.min(99, idx === 0 ? item.pct * mult : item.pct * (2 - mult))).toFixed(1));
       return { label: item.label, pct, display: `${pct.toFixed(1)}%` };
     });
-  }, [snapshot?.audience?.geographies, demoGeoTab]);
+  }, [demoGeoTab]);
 
   const ageItems = useMemo(() => {
-    const raw = snapshot?.audience?.ageGender || [];
-    const base =
-      raw.length > 0
-        ? raw.slice(0, 7).map((a) => ({
-            label: a.group || a.age || '25–34 years',
-            pct: Number(a.percentage ?? a.total ?? 0),
-          }))
-        : [
-            { label: '13–17 years', pct: 2.8 },
-            { label: '18–24 years', pct: 27.2 },
-            { label: '25–34 years', pct: 45.0 },
-            { label: '35–44 years', pct: 18.9 },
-            { label: '45–54 years', pct: 4.8 },
-            { label: '55–64 years', pct: 1.0 },
-            { label: '65+ years', pct: 0.3 },
-          ];
+    const base = [
+      { label: '13–17 years', pct: 4.6 },
+      { label: '18–24 years', pct: 27.6 },
+      { label: '25–34 years', pct: 43.3 },
+      { label: '35–44 years', pct: 19.1 },
+      { label: '45–54 years', pct: 4.4 },
+      { label: '55–64 years', pct: 0.6 },
+      { label: '65+ years', pct: 0.3 },
+    ];
     return base.map((item, idx) => {
       const adj =
         demoAgeTab === 'shorts'
@@ -286,50 +279,37 @@ export default function Analytics() {
       const pct = Number(Math.max(0.1, Math.min(80, item.pct * adj)).toFixed(1));
       return { label: item.label, pct, display: `${pct.toFixed(1)}%` };
     });
-  }, [snapshot?.audience?.ageGender, demoAgeTab]);
+  }, [demoAgeTab]);
 
   const genderItems = useMemo(() => {
     const shift = demoGenderTab === 'shorts' ? 4.2 : demoGenderTab === 'videos' ? 0.4 : 0;
-    const female = Number((10.3 + shift).toFixed(1));
-    const male = Number((100 - female).toFixed(1));
+    const female = Number((14.9 + shift).toFixed(1));
+    const userSpec = 0.1;
+    const male = Number((100 - female - userSpec).toFixed(1));
     return [
       { label: 'Female', pct: female, display: `${female.toFixed(1)}%` },
       { label: 'Male', pct: male, display: `${male.toFixed(1)}%` },
-      { label: 'User specified', pct: 0.0, display: '0.0%' },
+      { label: 'User-specified', pct: userSpec, display: `${userSpec.toFixed(1)}%` },
     ];
   }, [demoGenderTab]);
 
   const languageItems = useMemo(() => {
-    const raw = snapshot?.audience?.subtitleLanguages || [];
-    if (raw.length > 0) {
-      return raw.slice(0, 5).map((l) => {
-        const pct = Number(l.percentage ?? l.share ?? 0);
-        return { label: l.language || l.name || 'No subtitles/CC', pct, display: `${pct.toFixed(1)}%` };
-      });
-    }
     return [
-      { label: 'No subtitles/CC', pct: 73.6, display: '73.6%' },
-      { label: 'English (United States)', pct: 18.4, display: '18.4%' },
-      { label: 'Spanish', pct: 4.2, display: '4.2%' },
-      { label: 'French', pct: 2.4, display: '2.4%' },
-      { label: 'German', pct: 1.4, display: '1.4%' },
+      { label: 'No subtitles/CC', pct: 90.7, display: '90.7%' },
+      { label: 'English', pct: 4.8, display: '4.8%' },
+      { label: 'English (United States)', pct: 2.5, display: '2.5%' },
+      { label: 'German', pct: 1.2, display: '1.2%' },
+      { label: 'French', pct: 0.8, display: '0.8%' },
     ];
-  }, [snapshot?.audience?.subtitleLanguages]);
+  }, []);
 
   const viewerLoyaltySegments = useMemo(
-    () =>
-      isVideoMode
-        ? [
-            { label: 'New viewers', pct: 10, display: '10%' },
-            { label: 'Casual viewers', pct: 51, display: '51%' },
-            { label: 'Regular viewers', pct: 38, display: '38%' },
-          ]
-        : [
-            { label: 'New viewers', pct: 79.2, display: '79.2%' },
-            { label: 'Casual viewers', pct: 18.8, display: '18.8%' },
-            { label: 'Regular viewers', pct: 2.0, display: '2.0%' },
-          ],
-    [isVideoMode]
+    () => [
+      { label: 'New viewers', pct: 81.0, display: '81.0%' },
+      { label: 'Casual viewers', pct: 16.0, display: '16.0%' },
+      { label: 'Regular viewers', pct: 3.1, display: '3.1%' },
+    ],
+    []
   );
 
   const rtTotal48h = useMemo(() => {
@@ -446,23 +426,43 @@ export default function Analytics() {
         ];
 
     const isMoreActive =
+      rangeKey === 'first24' ||
       rangeKey === 'last365' ||
       rangeKey === '365' ||
       rangeKey === '2026' ||
       rangeKey === '2025' ||
+      rangeKey === 'august' ||
+      rangeKey === 'july' ||
+      rangeKey === 'june' ||
       (!isVideoMode && rangeKey === 'lifetime');
 
     const moreBtnLabel =
-      rangeKey === 'last365' || rangeKey === '365'
+      rangeKey === 'first24'
+        ? 'First 24 hours'
+        : rangeKey === 'last365' || rangeKey === '365'
         ? '365 days'
         : !isVideoMode && rangeKey === 'lifetime'
         ? 'Lifetime'
         : rangeKey === '2026' || rangeKey === '2025'
         ? rangeKey
+        : rangeKey === 'august' || rangeKey === 'july' || rangeKey === 'june'
+        ? rangeKey[0].toUpperCase() + rangeKey.slice(1)
         : 'More';
+
+    const displayDateText =
+      rangeKey === 'lifetime' && !isVideoMode
+        ? '11 Feb 2023 – 20 Nov 2026'
+        : rangeKey === 'last28' && !isVideoMode
+        ? '24 Oct – 20 Nov 2026'
+        : snapshot?.dateRangeLabel || '';
 
     return (
       <div className="an26-date-controls">
+        {displayDateText && (
+          <span className="an26-card-sub" style={{ marginRight: 6, fontWeight: 500 }}>
+            {displayDateText}
+          </span>
+        )}
         {primaryPresets.map((p) => (
           <button
             key={p.key}
@@ -486,14 +486,31 @@ export default function Analytics() {
 
           {showMorePeriods && (
             <div className="an26-more-menu">
+              {isVideoMode && (
+                <button type="button" onClick={() => handleSelectDateRange('first24')}>
+                  First 24 hours
+                </button>
+              )}
               <button type="button" onClick={() => handleSelectDateRange('last365')}>
                 Last 365 days
               </button>
               <button type="button" onClick={() => handleSelectDateRange('lifetime')}>
-                Lifetime
+                {isVideoMode ? 'Since uploaded (lifetime)' : 'Lifetime'}
               </button>
               <button type="button" onClick={() => handleSelectDateRange('2026')}>
                 2026
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('2025')}>
+                2025
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('august')}>
+                August
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('july')}>
+                July
+              </button>
+              <button type="button" onClick={() => handleSelectDateRange('june')}>
+                June
               </button>
               <button
                 type="button"
@@ -653,7 +670,13 @@ export default function Analytics() {
                 <span className="an26-delta-muted">{fmtV(Math.round(scopedViews * 0.45))}</span>
               )}
             </div>
-            <StudioLineMetricChart data={viewsSeries} metricKey="views" height={205} showUploadMarkers={hasContentData} />
+            <StudioLineMetricChart
+              data={viewsSeries}
+              metricKey="views"
+              height={205}
+              showUploadMarkers={hasContentData}
+              isLifetime={!isVideoMode && rangeKey === 'lifetime'}
+            />
           </div>
 
           <div className="an26-stack-3">
@@ -861,13 +884,38 @@ export default function Analytics() {
     const matchingPlaylists = playlists.filter(
       (p) => Array.isArray(p.videoIds) && p.videoIds.includes(currentVideo?.id)
     );
-    const suggestingVideos = videos
-      .filter((v) => v.id !== currentVideo?.id)
-      .slice(0, 5)
-      .map((v, idx) => ({
-        ...v,
-        suggestShare: idx === 0 ? '7.7%' : '3.8%',
-      }));
+    const suggestingVideos = [
+      {
+        id: currentVideo?.id || 'VID001',
+        title: currentVideo?.title || 'This video',
+        thumbnail: currentVideo?.thumbnail || '/thumbnails/latest_video.png',
+        suggestShare: '4.4%',
+      },
+      {
+        id: 'VID002',
+        title: 'Why Is There Still Another Woman in His Life?...',
+        thumbnail: videos[1]?.thumbnail || '/thumbnails/2.webp',
+        suggestShare: '4.2%',
+      },
+      {
+        id: 'VID003',
+        title: 'Signs He Truly Loves You Deeply...',
+        thumbnail: videos[2]?.thumbnail || '/thumbnails/3.webp',
+        suggestShare: '4.2%',
+      },
+      {
+        id: 'VID004',
+        title: 'Relationship Truths You Need To Know...',
+        thumbnail: videos[3]?.thumbnail || '/thumbnails/4.webp',
+        suggestShare: '2.5%',
+      },
+      {
+        id: 'VID005',
+        title: 'Understanding Men in Difficult Relationships...',
+        thumbnail: videos[4]?.thumbnail || '/thumbnails/5.webp',
+        suggestShare: '1.9%',
+      },
+    ];
 
     return (
       <div className="an26-page">
@@ -964,14 +1012,16 @@ export default function Analytics() {
               </div>
             </div>
             <div className="an26-card-metric-row">
-              <span>Total traffic share</span>
-              <strong>0.2%</strong>
+              <span>Proportion of your total traffic</span>
+              <strong>0.9%</strong>
             </div>
             <StudioProgressList
               items={[
-                { label: 'Google Search', pct: 42.6, display: '42.6%' },
-                { label: 'Instagram', pct: 31.8, display: '31.8%' },
-                { label: 'Facebook', pct: 25.6, display: '25.6%' },
+                { label: 'WhatsApp', pct: 50.0, display: '50.0%' },
+                { label: 'whatsapp.com', pct: 19.4, display: '19.4%' },
+                { label: 'Google Search', pct: 13.0, display: '13.0%' },
+                { label: 'WhatsApp Business', pct: 6.4, display: '6.4%' },
+                { label: 'instagram.com', pct: 1.5, display: '1.5%' },
               ]}
             />
           </div>
@@ -986,8 +1036,8 @@ export default function Analytics() {
               </div>
             </div>
             <div className="an26-card-metric-row">
-              <span>Total traffic share</span>
-              <strong>4.5%</strong>
+              <span>Proportion of your total traffic</span>
+              <strong>81.2%</strong>
             </div>
             <StudioProgressList items={searchTermItems} />
           </div>
@@ -999,9 +1049,13 @@ export default function Analytics() {
                 <span className="an26-card-sub">Views · {snapshot?.dateRangeLabel}</span>
               </div>
             </div>
+            <div className="an26-card-metric-row">
+              <span>Proportion of your total traffic</span>
+              <strong>0.1%</strong>
+            </div>
             {matchingPlaylists.length === 0 ? (
               <p className="an26-card-sub" style={{ marginTop: 10 }}>
-                Not enough data
+                Not enough traffic data to show this report
               </p>
             ) : (
               <StudioProgressList
@@ -1022,8 +1076,8 @@ export default function Analytics() {
               </div>
             </div>
             <div className="an26-card-metric-row">
-              <span>Total traffic share</span>
-              <strong>1.3%</strong>
+              <span>Proportion of your total traffic</span>
+              <strong>0.8%</strong>
             </div>
             <div className="an26-top-videos-list">
               {suggestingVideos.map((v) => (
@@ -1046,13 +1100,13 @@ export default function Analytics() {
         <div className="an26-third-card an26-card">
           <div className="an26-card-head">
             <div>
-              <h3>Subscriber notifications</h3>
+              <h3>Bell notifications sent</h3>
             </div>
           </div>
           <NotificationFunnelCard
-            pushSent={Math.max(120, Math.round((agg.views || 500) * 1.8))}
-            ctr="0.7%"
-            viewsFromNotifs={Math.max(8, Math.round((agg.views || 500) * 0.013))}
+            pushSent={Math.round((channelInfo?.subscribers || 53884) * 0.07)}
+            ctr="0.8%"
+            viewsFromNotifs={Math.max(1, Math.round((agg.views || 0) * 0.001))}
           />
         </div>
       </div>
@@ -1170,14 +1224,13 @@ export default function Analytics() {
             <div className="an26-card">
               <div className="an26-card-head">
                 <div>
-                  <h3>Likes vs. dislikes</h3>
+                  <h3>Likes (vs. dislikes)</h3>
                   <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
                 </div>
               </div>
               <div className="an26-hero-kpi-inline">
-                <strong className="an26-kpi-big-num yt-display-font">97.6%</strong>
-                <StudioDownBadge />
-                <span className="an26-delta-muted" style={{ color: '#606060' }}>18.9%</span>
+                <strong className="an26-kpi-big-num yt-display-font">96.5%</strong>
+                <span className="an26-delta-muted" style={{ color: '#606060' }}>Channel avg: 97.7%</span>
               </div>
             </div>
 
@@ -1195,12 +1248,23 @@ export default function Analytics() {
               <div className="an26-card-head">
                 <div>
                   <h3>Hype</h3>
-                  <span className="an26-card-sub">Hype points · {snapshot?.dateRangeLabel}</span>
+                  <span className="an26-card-sub">First 7 days</span>
                 </div>
               </div>
-              <p className="an26-card-sub" style={{ marginTop: 4 }}>
-                No hype activity recorded in the selected period.
-              </p>
+              <div style={{ display: 'flex', gap: 28, marginTop: 6 }}>
+                <div>
+                  <strong className="an26-kpi-big-num yt-display-font">
+                    {fmtV(Math.round((agg.views || 0) * 0.1))}
+                  </strong>
+                  <div className="an26-card-sub">Hype points</div>
+                </div>
+                <div>
+                  <strong className="an26-kpi-big-num yt-display-font">
+                    {Math.max(1, Math.round((agg.views || 0) * 0.0016)).toLocaleString('en-IN')}
+                  </strong>
+                  <div className="an26-card-sub">Hypes</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1216,76 +1280,44 @@ export default function Analytics() {
     const subWatchShare = isVideoMode ? 66.2 : 9.4;
     const notSubWatchShare = Number((100 - subWatchShare).toFixed(1));
 
-    const deviceSegments = (() => {
-      if (!isVideoMode && deviceFilterTab === 'shorts') {
-        return [
-          { label: 'Mobile phone', pct: 95.2, display: '95.2%' },
-          { label: 'Computer', pct: 3.1, display: '3.1%' },
-          { label: 'TV', pct: 1.1, display: '1.1%' },
-          { label: 'Tablet', pct: 0.6, display: '0.6%' },
-        ];
-      }
-      if (!isVideoMode && deviceFilterTab === 'live') {
-        return [
-          { label: 'Mobile phone', pct: 78.0, display: '78.0%' },
-          { label: 'Computer', pct: 16.5, display: '16.5%' },
-          { label: 'TV', pct: 4.1, display: '4.1%' },
-          { label: 'Tablet', pct: 1.4, display: '1.4%' },
-        ];
-      }
-      if (!isVideoMode && deviceFilterTab === 'videos') {
-        return [
-          { label: 'Mobile phone', pct: 85.3, display: '85.3%' },
-          { label: 'Computer', pct: 11.0, display: '11.0%' },
-          { label: 'TV', pct: 2.6, display: '2.6%' },
-          { label: 'Tablet', pct: 1.1, display: '1.1%' },
-        ];
-      }
-      return isVideoMode
-        ? [
-            { label: 'Mobile phone', pct: 85.3, display: '85.3%' },
-            { label: 'Computer', pct: 11.0, display: '11.0%' },
-            { label: 'TV', pct: 2.6, display: '2.6%' },
-            { label: 'Tablet', pct: 1.1, display: '1.1%' },
-          ]
-        : [
-            { label: 'Mobile phone', pct: 86.4, display: '86.4%' },
-            { label: 'Computer', pct: 9.0, display: '9.0%' },
-            { label: 'TV', pct: 2.8, display: '2.8%' },
-            { label: 'Tablet', pct: 1.6, display: '1.6%' },
-          ];
-    })();
-
-    const popularAudVideos = [...videos]
-      .sort((a, b) => {
-        if (popularAudTab === 'casual') {
-          return String(b.title || '').localeCompare(String(a.title || ''));
-        }
-        if (popularAudTab === 'regular') {
-          return Number(a.views || 0) - Number(b.views || 0);
-        }
-        return Number(b.views || 0) - Number(a.views || 0);
-      })
-      .slice(0, 5)
-      .map((v) => {
-        const mult = popularAudTab === 'new' ? 0.72 : popularAudTab === 'casual' ? 0.21 : 0.07;
-        return {
-          ...v,
-          segViews: fmtV(Math.max(12, Math.round(Number(v.views || 0) * mult))),
-        };
-      });
-
-    const otherChannelsList = [
-      { name: 'Mindful Soul Insights', subs: '46.4K subscribers', initials: 'MS', bg: '#4747eb' },
-      { name: 'Modern Relationship Lab', subs: '140K subscribers', initials: 'MR', bg: '#8b2fc9' },
-      { name: 'Deep Connection Daily', subs: '210K subscribers', initials: 'DC', bg: '#065fd4' },
-      { name: 'Inner Clarity Studio', subs: '500K subscribers', initials: 'IC', bg: '#137333' },
+    const deviceSegments = [
+      { label: 'Mobile phone', pct: 86.4, display: '86.4%' },
+      { label: 'Computer', pct: 9.2, display: '9.2%' },
+      { label: 'Others', pct: 4.4, display: '4.4%' },
     ];
 
-    const otherWatchedVideos = [...videos]
-      .slice(0, otherWatchTab === 'videos' ? 3 : 5)
-      .reverse()
-      .slice(0, 3);
+    const popularAudVideos = videos.slice(0, 5).map((v) => ({
+      ...v,
+      segViews: v.viewsFormatted || fmtV(v.views || 0),
+    }));
+
+    const otherChannelsList = [
+      {
+        name: 'Invisible Gyan',
+        subs: '477.0K subscribers',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Rahul Upmanyu',
+        subs: '318.0K subscribers',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Shivani Raaz Shukla 2.0',
+        subs: '117.0K subscribers',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'THE RADIO TV',
+        subs: '366.0K subscribers',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+      },
+      {
+        name: 'Saddam Kassim',
+        subs: '1.0M subscribers',
+        avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+      },
+    ];
 
     return (
       <div className="an26-page">
@@ -1469,7 +1501,7 @@ export default function Analytics() {
                   </div>
                 </div>
                 <div className="an26-top-videos-list">
-                  {videos.slice(0, 5).map((v, idx) => (
+                  {videos.slice(0, 6).map((v, idx) => (
                     <div
                       key={v.id}
                       className="an26-top-video-row"
@@ -1480,8 +1512,8 @@ export default function Analytics() {
                         <p>{v.title}</p>
                       </div>
                       <span className="an26-grow-badge">
-                        <span>{idx === 0 ? 'High' : 'Moderate'}</span>
-                        {idx === 0 ? <StudioUpBadge size={16} /> : <StudioCheckBadge size={16} />}
+                        <span>{idx === 0 ? 'Very high' : idx < 4 ? 'Moderate' : 'Low'}</span>
+                        {idx < 4 ? <StudioCheckBadge size={16} /> : null}
                       </span>
                     </div>
                   ))}
@@ -1531,7 +1563,9 @@ export default function Analytics() {
                         <div className="an26-card-sub">Typical on YouTube: 10% - 30%</div>
                       </div>
                     </div>
-                    <span className="an26-notif-val">7.3%</span>
+                    <span className="an26-notif-val">
+                      7.0% ({fmtV(Math.round((channelInfo?.subscribers || 53884) * 0.07))})
+                    </span>
                   </div>
                   <div className="an26-notif-row">
                     <div className="an26-notif-left">
@@ -1541,7 +1575,9 @@ export default function Analytics() {
                         <div className="an26-card-sub">Typical on YouTube: 5% - 20%</div>
                       </div>
                     </div>
-                    <span className="an26-notif-val">4.0%</span>
+                    <span className="an26-notif-val">
+                      3.9% ({fmtV(Math.round((channelInfo?.subscribers || 53884) * 0.039))})
+                    </span>
                   </div>
                 </div>
                 <p className="an26-card-sub">
@@ -1703,20 +1739,12 @@ export default function Analytics() {
               <div className="an26-top-videos-list">
                 {otherChannelsList.map((ch) => (
                   <div key={ch.name} className="an26-chan-watch-row">
-                    <div
+                    <img
+                      src={ch.avatar}
+                      alt={ch.name}
                       className="an26-chan-watch-avatar"
-                      style={{
-                        background: ch.bg,
-                        color: '#ffffff',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {ch.initials}
-                    </div>
+                      style={{ objectFit: 'cover' }}
+                    />
                     <div className="an26-chan-watch-meta">
                       <strong>{ch.name}</strong>
                       <span>{ch.subs}</span>
@@ -1733,33 +1761,10 @@ export default function Analytics() {
                   <span className="an26-card-sub">Last 7 days</span>
                 </div>
               </div>
-              <div className="an26-pill-tabs" style={{ marginBottom: 12 }}>
-                {['all', 'videos'].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`an26-pill-filter ${otherWatchTab === t ? 'active' : ''}`}
-                    onClick={() => setOtherWatchTab(t)}
-                  >
-                    {t[0].toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="an26-top-videos-list">
-                {otherWatchedVideos.map((v) => (
-                  <div
-                    key={v.id}
-                    className="an26-top-video-row"
-                    onClick={() => navigate(`${CHANNEL_PREFIX}/video/${v.id}/analytics/hub_overview`)}
-                  >
-                    <img src={v.thumbnail || '/thumbnails/latest_video.png'} alt={v.title} />
-                    <div className="an26-tv-meta">
-                      <p>{v.title}</p>
-                    </div>
-                    <span className="an26-tv-views">{v.viewsFormatted || fmtV(v.views)}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="an26-card-sub" style={{ marginTop: 12 }}>
+                Not enough eligible audience data to show this report.{' '}
+                <span className="an26-link-blue">Learn more</span>
+              </p>
             </div>
           </div>
         )}
@@ -1775,9 +1780,9 @@ export default function Analytics() {
     );
     const revFactor =
       !isVideoMode && revTab === 'Watch Page ads'
-        ? 0.86
+        ? 0.999
         : !isVideoMode && revTab === 'Shorts Feed ads'
-        ? 0.14
+        ? 0.001
         : !isVideoMode && (revTab === 'Supers & gifts' || revTab === 'Affiliate program')
         ? 0
         : 1;
@@ -1790,22 +1795,25 @@ export default function Analytics() {
             value: Number(((pt.value || 0) * revFactor).toFixed(2)),
           }));
 
-    const channelRpm = parseRupeeNumber(agg.rpm, 105.44);
-    const videoRpm = parseRupeeNumber(currentVideo?.rpm ?? agg.rpm, 48.2);
-    const videoCpm = parseRupeeNumber(currentVideo?.cpm ?? agg.cpm, 92.4);
+    const channelRpm =
+      agg.views > 0
+        ? Number(((totalRev / agg.views) * 1000).toFixed(2))
+        : parseRupeeNumber(agg.rpm, 1595.74);
+    const videoRpm = parseRupeeNumber(currentVideo?.rpm ?? agg.rpm, 33.64);
+    const videoCpm = parseRupeeNumber(currentVideo?.cpm ?? agg.cpm, 58.14);
 
     const allWaysItems = [
       {
         key: 'videos',
         label: 'Watch Page ads',
-        pct: 86,
-        display: formatCompactINR(totalRev * 0.86),
+        pct: 99.9,
+        display: formatINR(totalRev * 0.999),
       },
       {
         key: 'shorts',
         label: 'Shorts Feed ads',
-        pct: 14,
-        display: formatCompactINR(totalRev * 0.14),
+        pct: 0.1,
+        display: formatINR(totalRev * 0.001),
       },
     ];
     const visibleWaysItems =
@@ -1819,15 +1827,15 @@ export default function Analytics() {
 
     const contentEarnRev =
       contentEarnTab === 'videos'
-        ? totalRev * 0.86
+        ? totalRev
         : contentEarnTab === 'shorts'
-        ? totalRev * 0.14
+        ? totalRev * 0.001
         : 0;
     const contentEarnViews =
       contentEarnTab === 'videos'
-        ? Math.round((agg.views || 0) * 0.86)
+        ? Number(agg.views || 0)
         : contentEarnTab === 'shorts'
-        ? Math.round((agg.views || 0) * 0.14)
+        ? Math.round((agg.views || 0) * 0.001)
         : 0;
     const contentEarnRpm =
       contentEarnTab === 'videos'
@@ -1846,17 +1854,18 @@ export default function Analytics() {
       })
       .slice(0, 5);
 
+    const monthlyBaseRev = rangeKey === 'lifetime' ? 12532.97 : Number(displayedRev || 12532.97);
     const monthlyItems = [
-      { label: 'November (ongoing)', pct: 32, weight: 0.24 },
-      { label: 'October', pct: 86, weight: 0.31 },
-      { label: 'September', pct: 58, weight: 0.19 },
-      { label: 'August', pct: 38, weight: 0.11 },
-      { label: 'July', pct: 30, weight: 0.09 },
-      { label: 'June', pct: 22, weight: 0.06 },
+      { label: 'August (ongoing)', pct: 37, ratio: 0.35 },
+      { label: 'July', pct: 100, ratio: 0.95 },
+      { label: 'June', pct: 62, ratio: 0.59 },
+      { label: 'May', pct: 98, ratio: 0.93 },
+      { label: 'April', pct: 78, ratio: 0.74 },
+      { label: 'March', pct: 40, ratio: 0.38 },
     ].map((m) => ({
       label: m.label,
       pct: m.pct,
-      display: formatCompactINR(displayedRev * m.weight),
+      display: formatINR(monthlyBaseRev * m.ratio),
     }));
 
     return (
@@ -2073,7 +2082,7 @@ export default function Analytics() {
                           <p>{v.title}</p>
                         </div>
                         <span className="an26-tv-views" title={formatINR(v.revNum || 0)}>
-                          {getVideoRevenueFormatted(v, true)}
+                          {formatINR(v.revNum || 0)}
                         </span>
                       </div>
                     ))
@@ -2157,18 +2166,18 @@ export default function Analytics() {
                 style={{ marginBottom: 2 }}
                 title={formatINR(contentEarnRev)}
               >
-                {formatCompactINR(contentEarnRev)}
+                {formatINR(contentEarnRev)}
               </div>
               <p className="an26-card-sub" style={{ marginBottom: 16 }}>
                 Estimated revenue
               </p>
               <div className="an26-rpm-cards">
                 <div className="an26-rpm-row">
-                  <span>Engaged views</span>
-                  <span>{fmtV(contentEarnViews)}</span>
+                  <span>Views</span>
+                  <span>{contentEarnTab === 'videos' ? agg.viewsFormatted || fmtV(contentEarnViews) : fmtV(contentEarnViews)}</span>
                 </div>
                 <div className="an26-rpm-row">
-                  <span>Revenue per 1K engaged views (RPM)</span>
+                  <span>Revenue per 1K views (RPM)</span>
                   <span>{formatINR(contentEarnRpm)}</span>
                 </div>
               </div>
@@ -2227,7 +2236,7 @@ export default function Analytics() {
       label: 'Estimated revenue',
       val: revenueDisplay,
       delta: formatCompactINR((agg.revenue || 0) * 0.28),
-      fullVal: formatINR(agg.revenue || 0),
+      fullVal: revenueDisplay,
       clock: true,
     },
   ];
@@ -2292,6 +2301,7 @@ export default function Analytics() {
               showTypical={isVideoMode && heroMetric === 'views'}
               showProcessingZone={heroMetric === 'revenue'}
               showUploadMarkers={!isVideoMode}
+              isLifetime={!isVideoMode && rangeKey === 'lifetime'}
             />
 
             {isVideoMode && heroMetric === 'views' && (
@@ -2574,12 +2584,11 @@ export default function Analytics() {
                   </div>
                 </div>
                 <div className="an26-card">
-                  <h3>Likes vs. dislikes</h3>
+                  <h3>Likes (vs. dislikes)</h3>
                   <span className="an26-card-sub">{snapshot?.dateRangeLabel}</span>
                   <div className="an26-hero-kpi-inline" style={{ marginTop: 8 }}>
-                    <strong className="an26-kpi-big-num yt-display-font">97.6%</strong>
-                    <StudioDownBadge />
-                    <span className="an26-delta-muted" style={{ color: '#606060' }}>18.9%</span>
+                    <strong className="an26-kpi-big-num yt-display-font">96.5%</strong>
+                    <span className="an26-delta-muted" style={{ color: '#606060' }}>Channel avg: 97.7%</span>
                   </div>
                 </div>
               </div>
@@ -2858,13 +2867,13 @@ export default function Analytics() {
                   items={[
                     {
                       label: 'Watch Page ads',
-                      pct: 86,
-                      display: formatCompactINR((agg.revenue || 0) * 0.86),
+                      pct: 99.9,
+                      display: formatINR((agg.revenue || 0) * 0.999),
                     },
                     {
                       label: 'Shorts Feed ads',
-                      pct: 14,
-                      display: formatCompactINR((agg.revenue || 0) * 0.14),
+                      pct: 0.1,
+                      display: formatINR((agg.revenue || 0) * 0.001),
                     },
                   ]}
                 />
@@ -2881,19 +2890,19 @@ export default function Analytics() {
                 <StudioProgressList
                   items={[
                     {
-                      label: 'November (ongoing)',
-                      pct: 32,
-                      display: formatCompactINR((agg.revenue || 0) * 0.24),
+                      label: 'August (ongoing)',
+                      pct: 37,
+                      display: formatINR((rangeKey === 'lifetime' ? 12532.97 : (agg.revenue || 12532.97)) * 0.35),
                     },
                     {
-                      label: 'October',
-                      pct: 86,
-                      display: formatCompactINR((agg.revenue || 0) * 0.31),
+                      label: 'July',
+                      pct: 100,
+                      display: formatINR((rangeKey === 'lifetime' ? 12532.97 : (agg.revenue || 12532.97)) * 0.95),
                     },
                     {
-                      label: 'September',
-                      pct: 58,
-                      display: formatCompactINR((agg.revenue || 0) * 0.19),
+                      label: 'June',
+                      pct: 62,
+                      display: formatINR((rangeKey === 'lifetime' ? 12532.97 : (agg.revenue || 12532.97)) * 0.59),
                     },
                   ]}
                 />
