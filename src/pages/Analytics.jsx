@@ -449,20 +449,8 @@ export default function Analytics() {
         ? rangeKey[0].toUpperCase() + rangeKey.slice(1)
         : 'More';
 
-    const displayDateText =
-      rangeKey === 'lifetime' && !isVideoMode
-        ? '11 Feb 2023 – 20 Nov 2026'
-        : rangeKey === 'last28' && !isVideoMode
-        ? '24 Oct – 20 Nov 2026'
-        : snapshot?.dateRangeLabel || '';
-
     return (
       <div className="an26-date-controls">
-        {displayDateText && (
-          <span className="an26-card-sub" style={{ marginRight: 6, fontWeight: 500 }}>
-            {displayDateText}
-          </span>
-        )}
         {primaryPresets.map((p) => (
           <button
             key={p.key}
